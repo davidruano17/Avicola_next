@@ -1,0 +1,81 @@
+/* Configuración de Temas y Variables */
+:root {
+    --primary: #4CAF50;
+    --bg-light: #f8fdf8;
+    --bg-dark: #1a1f1a;
+}
+
+/* Base */
+body {
+    font-family: 'Public Sans', sans-serif;
+}
+
+/* Clases de Componentes Reutilizables */
+.card {
+    background-color: white;
+    padding: 1.5rem;
+    border-radius: 1rem;
+    border: 1px solid #f1f5f9;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.dark .card {
+    background-color: #18181b;
+    border-color: #27272a;
+}
+
+.card-label {
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+}
+
+.icon-badge {
+    background-color: rgba(76, 175, 80, 0.1);
+    color: var(--primary);
+    padding: 0.5rem;
+    border-radius: 0.5rem;
+}
+
+/* Formulario */
+.form-label {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #475569;
+}
+
+.form-input {
+    width: 100%;
+    background-color: #f8fafc;
+    border: none;
+    border-radius: 0.75rem;
+    padding: 0.75rem;
+}
+
+.btn-submit {
+    background-color: var(--primary);
+    color: white;
+    font-weight: bold;
+    padding: 0.75rem;
+    border-radius: 0.75rem;
+    transition: all 0.2s;
+}
+
+.btn-submit:hover {
+    filter: brightness(0.9);
+}
+
+/* Tablas */
+.table-head {
+    background-color: #f8fafc;
+    color: #64748b;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+}

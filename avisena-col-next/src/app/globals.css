@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+@theme {
+  --color-primary: #49e619;
+  --color-background-light: #f6f8f6;
+  --color-background-dark: #152111;
+  --font-display: "Inter", "Public Sans", sans-serif;
+}
+
+/* Reset default Vite styles that break the UI */
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  margin: 0;
+  min-width: 320px;
+  min-height: 100vh;
+}

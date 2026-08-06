@@ -1,0 +1,110 @@
+/* Variables y Configuración Base */
+:root {
+    --primary: #6aec13;
+    --bg-dark: #172210;
+    --slate-800: #1e293b;
+    --white: #ffffff;
+}
+
+.app-body {
+    font-family: 'Public Sans', sans-serif;
+    background-color: #f7f8f6;
+    color: var(--slate-800);
+}
+
+.dark .app-body {
+    background-color: var(--bg-dark);
+    color: #f1f5f9;
+}
+
+/* Layout Helpers */
+.container-center {
+    max-width: 80rem; /* 7xl */
+    margin-left: auto;
+    margin-right: auto;
+    padding-left: 1rem;
+    padding-right: 1rem;
+}
+
+.flex-between { display: flex; justify-content: space-between; align-items: center; }
+.flex-items-center { display: flex; align-items: center; }
+
+/* Navegación */
+.navbar {
+    border-bottom: 1px solid rgba(106, 236, 19, 0.2);
+    backdrop-filter: blur(12px);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+}
+
+.nav-link {
+    color: #64748b;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+
+.nav-link.active {
+    color: var(--primary);
+    border-bottom: 2px solid var(--primary);
+}
+
+/* Componentes de Card */
+.card {
+    background-color: var(--white);
+    border: 1px solid #e2e8f0;
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+.dark .card {
+    background-color: rgba(23, 34, 16, 0.4);
+    border-color: rgba(106, 236, 19, 0.1);
+}
+
+/* Formulario */
+.input-standard {
+    width: 100%;
+    background-color: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 0.5rem;
+    padding: 0.5rem 0.75rem;
+}
+
+.btn-primary-lg {
+    width: 100%;
+    background-color: var(--primary);
+    color: var(--bg-dark);
+    font-weight: 700;
+    padding: 0.75rem;
+    border-radius: 0.5rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Tablas */
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.data-table th {
+    padding: 1rem 1.5rem;
+    font-size: 0.625rem;
+    text-transform: uppercase;
+    color: #64748b;
+    border-bottom: 1px solid #f1f5f9;
+}
+
+.badge-success {
+    background-color: rgba(106, 236, 19, 0.2);
+    color: var(--primary);
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.625rem;
+    font-weight: 700;
+}

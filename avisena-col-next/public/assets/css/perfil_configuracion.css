@@ -1,0 +1,142 @@
+:root {
+            --primary: #5be830;
+            --primary-hover: rgba(91, 232, 48, 0.1);
+            --bg-light: #f6f8f6;
+            --bg-card: #ffffff;
+            --text-main: #111b0e;
+            --text-muted: #5f974e;
+            --border: #d5e7d0;
+            --danger: #dc2626;
+            --danger-bg: #fef2f2;
+        }
+
+        .dark {
+            --bg-light: #152111;
+            --bg-card: #1a2e15;
+            --text-main: #f6f8f6;
+            --border: #2a3d24;
+            --primary-hover: rgba(91, 232, 48, 0.15);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: var(--bg-light);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: flex-end;
+            align-items: flex-start;
+            padding: 4rem 2.5rem;
+        }
+
+        /* --- CONTENEDOR PRINCIPAL SEMÁNTICO --- */
+        article {
+            width: 100%;
+            max-width: 280px;
+            background: var(--bg-card);
+            border-radius: 1rem;
+            border: 1px solid var(--border);
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            overflow: hidden;
+            animation: fadeIn 0.3s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+
+        /* --- ENCABEZADO DE USUARIO --- */
+        header {
+            padding: 1.25rem;
+            background: linear-gradient(to bottom, rgba(0,0,0,0.02), transparent);
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        figure {
+            width: 3.5rem;
+            height: 3.5rem;
+            border-radius: 50%;
+            border: 2px solid var(--primary);
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+
+        figure img { width: 100%; height: 100%; object-fit: cover; }
+
+        hgroup h1 { font-size: 0.9rem; font-weight: 700; color: var(--text-main); }
+        hgroup p { font-size: 0.75rem; color: var(--text-muted); }
+
+        /* --- NAVEGACIÓN DE OPCIONES --- */
+        nav { padding: 0.5rem 0; }
+
+        nav a {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 0.85rem 1.25rem;
+            text-decoration: none;
+            color: var(--text-main);
+            transition: all 0.2s;
+        }
+
+        nav a:hover { background: var(--primary-hover); }
+
+        nav a i {
+            width: 2.5rem;
+            height: 2.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0.75rem;
+            background: var(--primary-hover);
+            color: var(--text-muted);
+            font-style: normal;
+        }
+
+        nav a:hover i { color: var(--primary); transform: scale(1.05); }
+
+        section { flex: 1; }
+        section strong { display: block; font-size: 0.85rem; font-weight: 600; }
+        section span { font-size: 0.65rem; color: #6b7280; }
+
+        .chevron { color: #d1d5db; font-size: 1.2rem !important; }
+
+        /* --- PIE DE PÁGINA (CERRAR SESIÓN) --- */
+        footer {
+            border-top: 1px solid var(--border);
+            margin-top: 0.5rem;
+        }
+
+        footer button {
+            width: 100%;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            padding: 1.25rem;
+            background: transparent;
+            border: none;
+            cursor: pointer;
+            color: var(--danger);
+            transition: background 0.2s;
+        }
+
+        footer button:hover { background: var(--danger-bg); }
+
+        .logout-icon {
+            width: 2.5rem;
+            height: 2.5rem;
+            background: var(--danger-bg);
+            border-radius: 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .material-symbols-outlined { font-size: 22px; }
+        
