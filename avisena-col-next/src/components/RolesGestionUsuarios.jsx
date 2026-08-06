@@ -26,17 +26,8 @@ export default function RolesGestionUsuarios({
   const agregarRol = () => {
     if (!nuevoRol.trim()) return;
 
-    if (nombreEditado.trim() === rolViejo) {
-      setRolEditando(null);
-      setNombreEditado("");
-      return;
-    }
     if (
-      roles.some(
-        (rol) =>
-          rol.toLowerCase() === nombreEditado.trim().toLowerCase() &&
-          rol !== rolViejo,
-      )
+      roles.some((rol) => rol.toLowerCase() === nuevoRol.trim().toLowerCase())
     ) {
       alert("Ese rol ya existe");
       return;
@@ -48,6 +39,7 @@ export default function RolesGestionUsuarios({
     localStorage.setItem("roles", JSON.stringify(nuevosRoles));
 
     setNuevoRol("");
+    cerrarModal();
   };
 
   const eliminarRol = (rolEliminar) => {
@@ -69,6 +61,23 @@ export default function RolesGestionUsuarios({
   const guardarEdicion = (rolViejo) => {
     if (!nombreEditado.trim()) return;
 
+    if (nombreEditado.trim() === rolViejo) {
+      setRolEditando(null);
+      setNombreEditado("");
+      return;
+    }
+
+    if (
+      roles.some(
+        (rol) =>
+          rol.toLowerCase() === nombreEditado.trim().toLowerCase() &&
+          rol !== rolViejo,
+      )
+    ) {
+      alert("Ese rol ya existe");
+      return;
+    }
+
     const nuevosRoles = roles.map((rol) =>
       rol === rolViejo ? nombreEditado.trim() : rol,
     );
@@ -81,7 +90,6 @@ export default function RolesGestionUsuarios({
 
     setUsuarios(usuariosActualizados);
     setUsuariosFiltrados(usuariosActualizados);
-
     localStorage.setItem("usuarios", JSON.stringify(usuariosActualizados));
 
     setRoles(nuevosRoles);
@@ -97,7 +105,7 @@ export default function RolesGestionUsuarios({
         <section className="flex gap-3 flex-wrap">
           <button
             onClick={abrirModal}
-            className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-primary hover:bg-[#58db25] px-6 text-sm font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
+            className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[#49E619] hover:bg-[#58db25] px-6 text-sm font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
           >
             <span className="material-symbols-outlined">badge</span>
             <span>Roles</span>
@@ -115,7 +123,7 @@ export default function RolesGestionUsuarios({
           >
             <section className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-border-dark">
               <section className="flex items-center gap-2">
-                <span className="material-icons text-primary">badge</span>
+                <span className="material-icons text-[#49E619]">badge</span>
                 <h2 className="text-lg font-bold justify-center">
                   Gestión de Roles
                 </h2>
@@ -179,7 +187,7 @@ export default function RolesGestionUsuarios({
 
               <button
                 onClick={agregarRol}
-                className="flex ml-4 h-12 w-max cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-primary hover:bg-[#3dc407] px-6 font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
+                className="flex ml-4 h-12 w-max cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[#49E619] hover:bg-[#3dc407] px-6 font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
               >
                 Agregar
               </button>
