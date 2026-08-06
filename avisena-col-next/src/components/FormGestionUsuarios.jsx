@@ -1,13 +1,16 @@
-'use client';
+"use client";
 
 import { useState } from "react";
 
 export default function FormGestionUsuarios({
   usuarios,
   setUsuarios,
-  setUsuariosFiltrados
+  setUsuariosFiltrados,
+  roles,
+  setRoles,
+  mostrarMensaje,
+  setPaginaActual,
 }) {
-
   const [modalAbierto, setModalAbierto] = useState(false);
   const [nombre, setNombre] = useState("");
   const [email, setEmail] = useState("");
@@ -30,7 +33,6 @@ export default function FormGestionUsuarios({
     localStorage.setItem("usuarios", JSON.stringify(data));
   }
 
-  /* guardar usuarios */
   function guardarUsuario() {
     const usuario = {
       id: Date.now(),
@@ -53,14 +55,16 @@ export default function FormGestionUsuarios({
 
     setUsuarios(nuevosUsuarios);
     setUsuariosFiltrados(nuevosUsuarios);
-    
+    setPaginaActual(Math.ceil(nuevosUsuarios.length / 5));
+
     guardarUsuarios(nuevosUsuarios);
+
+    mostrarMensaje("Usuario registrado correctamente");
 
     cerrarModal();
     limpiarFormulario();
   }
 
-  /* ===== limpiar formulario ===== */
   function limpiarFormulario() {
     setNombre("");
     setEmail("");
@@ -73,11 +77,11 @@ export default function FormGestionUsuarios({
 
   return (
     <>
-      <section className="flex flex-col lg:flex-row gap-4 justify-center">
+      <section className="flex flex-col lg:flex-row gap-4 justify-center w-0">
         <section className="flex gap-3 flex-wrap">
           <button
             onClick={abrirModal}
-            className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[#49E619] hover:bg-[#58db25] px-6 text-sm font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
+            className="flex h-12 w-48 cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-primary hover:bg-[#58db25] px-6 text-sm font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
           >
             <span className="material-symbols-outlined">person_add</span>
             <span>Añadir Usuario</span>
@@ -85,11 +89,11 @@ export default function FormGestionUsuarios({
         </section>
       </section>
       {modalAbierto && (
-        <section className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center" onClick={cerrarModal}>
-          <section className="bg-white border border-slate-200 w-full max-w-2xl rounded-xl shadow-sm p-6 overflow-hidden relative " onClick={(e) => e.stopPropagation()} >
+        <section className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center">
+          <section className="bg-white border border-slate-200 w-full max-w-3xl rounded-xl shadow-sm p-6 overflow-hidden relative ">
             <section className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-border-dark">
               <section className="flex items-center gap-2">
-                <span className='material-icons text-[#49E619]'>add_box</span>
+                <span className="material-icons text-primary">add_box</span>
                 <h2 className="text-lg font-bold justify-center">
                   Añadir Usuario
                 </h2>
@@ -101,82 +105,113 @@ export default function FormGestionUsuarios({
                 <span className="material-icons">close</span>
               </button>
             </section>
-            <section className="grid grid-cols-1 md:grid-cols-3 gap-2 p-6 items-center">
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Nombre</label>
-              <input
-                placeholder="Ingrese el nombre"
-                className="pl-4 pr-4 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40 col-span-2 "
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-              />
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">E-mail</label>
-              <input
-                placeholder="Ingrese el correo electrónico"
-                className="pl-4 pr-4 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40 col-span-2 "
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
+            <form>
+              <section className="space-y-5 p-6 grid grid-cols-2 ">
+                <section className="space-y-1.5 p-1 m-0">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Nombre
+                  </label>
+                  <input
+                    placeholder="Ingrese el nombre"
+                    className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                    value={nombre}
+                    onChange={(e) => setNombre(e.target.value)}
+                  />
+                </section>
+                <section className="space-y-1.5 p-1 m-0">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    E-mail
+                  </label>
+                  <input
+                    placeholder="Ingrese el correo electrónico"
+                    className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                  />
+                </section>
+                <section className="space-y-1.5 p-1 m-0">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Teléfono
+                  </label>
+                  <input
+                    type="tel"
+                    placeholder="Digite el número de celular"
+                    className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                    value={telefono}
+                    onChange={(e) => setTelefono(e.target.value)}
+                  />
+                </section>
+                <section className="space-y-1.5 p-1 m-0">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Documento
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ingrese el documento de identidad"
+                    className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                    value={documento}
+                    onChange={(e) => setDocumento(e.target.value)}
+                  />
+                </section>
+                <section className="space-y-1.5 p-1 m-0">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Residencia
+                  </label>
+                  <input
+                    placeholder="Dirección de residencia"
+                    className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                    value={residencia}
+                    onChange={(e) => setResidencia(e.target.value)}
+                  />
+                </section>
+                <section className="space-y-1.5 p-1 m-0">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Fecha de ingreso
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                    value={fecha}
+                    onChange={(e) => setFecha(e.target.value)}
+                  />
+                </section>
+                <section className="space-y-1.5 p-1 m-0 grid col-span-2">
+                  <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Asignar rol
+                  </label>
+                  <select
+                    className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                    value={rol}
+                    onChange={(e) => setRol(e.target.value)}
+                  >
+                    <option value="">Seleccione un rol</option>
 
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Teléfono</label>
-              <input
-                type="tel"
-                placeholder="Digite el número de celular"
-                className="pl-4 pr-4 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40 col-span-2 "
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-              />
+                    {roles.map((rolItem) => (
+                      <option key={rolItem} value={rolItem}>
+                        {rolItem}
+                      </option>
+                    ))}
+                  </select>
+                </section>
+              </section>
+              <section className="content-end">
+                <section className="flex justify-center space-y-1.5">
+                  <button
+                    onClick={cerrarModal}
+                    className="bg-[#e2e8f0] px-5 py-2.5 mr-4 rounded-lg border border-slate-200 hover:bg-slate-100 transition-all"
+                  >
+                    Cancelar
+                  </button>
 
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Documento</label>
-              <input
-                type="text"
-                placeholder="Ingrese el documento de identidad"
-                className="pl-4 pr-4 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40 col-span-2 "
-                value={documento}
-                onChange={(e) => setDocumento(e.target.value)}
-              />
-
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Residencia</label>
-              <input
-                placeholder="Dirección de residencia"
-                className="pl-4 pr-4 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40 col-span-2 "
-                value={residencia}
-                onChange={(e) => setResidencia(e.target.value)}
-              />
-
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Fecha de ingreso</label>
-              <input
-                type="date"
-                className="pl-4 pr-4 py-2.5 border text-slate-700 border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40 col-span-2 "
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-              />
-
-              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">Asignar rol</label>
-              <select
-                className="pl-4 pr-4 py-2.5 border text-slate-700 border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40 col-span-2"
-                value={rol}
-                onChange={(e) => setRol(e.target.value)}
-              >
-                <option value="">Seleccione un rol</option>
-                <option value="Instructor lider">Instructor lider</option>
-                <option value="Instructor investigador">
-                  Instructor investigador
-                </option>
-                <option value="Aprendiz de contrato">
-                  Aprendiz de contrato
-                </option>
-              </select>
-            </section>
-
-            <section className="flex justify-end gap-3 mt-6">
-              <button onClick={cerrarModal} className="bg-[#e2e8f0] px-5 py-2.5 rounded-lg border border-slate-200 hover:bg-slate-300 transition-all">
-                Cancelar
-              </button>
-
-              <button onClick={guardarUsuario} className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[#49E619] hover:bg-[#3dc407] px-6 font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out">
-                Guardar
-              </button>
-            </section>
+                  <button
+                    onClick={guardarUsuario}
+                    className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-primary hover:bg-[#3dc407] px-6 font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
+                  >
+                    Guardar
+                  </button>
+                </section>
+              </section>
+            </form>
           </section>
         </section>
       )}

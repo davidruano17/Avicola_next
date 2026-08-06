@@ -1,41 +1,56 @@
-'use client';
-
 export default function TablaGestionUsuarios({
   usuarios,
+  usuariosCompletos,
   setUsuarios,
-  setUsuariosFiltrados
+  setUsuariosFiltrados,
+  setModalEditarAbierto,
+  setUsuarioEditar,
+  setModalEliminarAbierto,
+  setUsuarioEliminar,
 }) {
+  function eliminarUsuario(id) {
+    const nuevosUsuarios = usuarios.filter((u) => u.id !== id);
 
-    function eliminarUsuario(id) {
-      const nuevosUsuarios = usuarios.filter((u) => u.id !== id);
+    setUsuarios(nuevosUsuarios);
+    setUsuariosFiltrados(nuevosUsuarios);
 
-      setUsuarios(nuevosUsuarios);
-      setUsuariosFiltrados(nuevosUsuarios);
+    localStorage.setItem("usuarios", JSON.stringify(nuevosUsuarios));
+  }
 
-      localStorage.setItem("usuarios", JSON.stringify(nuevosUsuarios));
-    }
+  function habilitarUsuario(id) {
+    const nuevosUsuarios = usuariosCompletos.map((u) =>
+      u.id === id ? { ...u, estado: "ACTIVO" } : u,
+    );
 
-    function habilitarUsuario(id) {
-      const nuevosUsuarios = usuarios.map((u) =>
+    setUsuarios(nuevosUsuarios);
+    setUsuariosFiltrados((usuariosActuales) =>
+      usuariosActuales.map((u) =>
         u.id === id ? { ...u, estado: "ACTIVO" } : u,
-      );
+      ),
+    );
 
-      setUsuarios(nuevosUsuarios);
-      setUsuariosFiltrados(nuevosUsuarios);
+    localStorage.setItem("usuarios", JSON.stringify(nuevosUsuarios));
+  }
 
-      localStorage.setItem("usuarios", JSON.stringify(nuevosUsuarios));
-    }
+  function deshabilitarUsuario(id) {
+    const nuevosUsuarios = usuariosCompletos.map((u) =>
+      u.id === id ? { ...u, estado: "INACTIVO" } : u,
+    );
 
-    function deshabilitarUsuario(id) {
-      const nuevosUsuarios = usuarios.map((u) =>
+    setUsuarios(nuevosUsuarios);
+    setUsuariosFiltrados((usuariosActuales) =>
+      usuariosActuales.map((u) =>
         u.id === id ? { ...u, estado: "INACTIVO" } : u,
-      );
-      
-      setUsuarios(nuevosUsuarios);
-      setUsuariosFiltrados(nuevosUsuarios);
+      ),
+    );
 
-      localStorage.setItem("usuarios", JSON.stringify(nuevosUsuarios));
-    }
+    localStorage.setItem("usuarios", JSON.stringify(nuevosUsuarios));
+  }
+
+  function editarUsuario(usuario) {
+    setUsuarioEditar(usuario);
+    setModalEditarAbierto(true);
+  }
 
   return (
     <>
@@ -64,15 +79,31 @@ export default function TablaGestionUsuarios({
                   </span>
                 </button>
 
-                <button onClick={() => deshabilitarUsuario(u.id)}
-                  className='p-2 rounded-lg bg-yellow-100 text-yellow-500 hover:bg-yellow-200'>
+                <button
+                  onClick={() => deshabilitarUsuario(u.id)}
+                  className="p-2 rounded-lg bg-yellow-100 text-yellow-500 hover:bg-yellow-200"
+                >
                   <span className="material-symbols-outlined text-lg">
                     block
                   </span>
                 </button>
 
-                <button onClick={() => eliminarUsuario(u.id)}
-                  className='p-2 rounded-lg bg-red-100 text-red-500 hover:bg-red-200'>
+                <button
+                  onClick={() => editarUsuario(u)}
+                  className="p-2 rounded-lg bg-blue-100 text-blue-500 hover:bg-blue-200"
+                >
+                  <span className="material-symbols-outlined text-lg">
+                    edit
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setUsuarioEliminar(u);
+                    setModalEliminarAbierto(true);
+                  }}
+                  className="p-2 rounded-lg bg-red-100 text-red-500 hover:bg-red-200"
+                >
                   <span className="material-symbols-outlined text-lg">
                     delete
                   </span>
