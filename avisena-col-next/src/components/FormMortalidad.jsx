@@ -34,7 +34,7 @@ export default function FormMortalidad({ agregarRegistro, mostrarMensaje }) {
 
     const nuevoRegistro = {
       id: Date.now(),
-      fecha: new Date().toLocaleDateString(),
+      fecha: new Date().toISOString().split("T")[0],
       galpon,
       cantidad: Number(cantidad),
       edad: Number(edad),

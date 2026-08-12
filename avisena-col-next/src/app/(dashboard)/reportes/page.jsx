@@ -1,10 +1,12 @@
-'use client';
+"use client";
 
 import { useState } from "react";
-import FiltrosReportes from '@/components/FiltrosReportes';
-import TablaReportes from '@/components/TablaReportes';
+import FiltrosReportes from "@/components/FiltrosReportes";
+import TablaReportes from "@/components/TablaReportes";
+import ResumenReportes from "@/components/ResumenReportes";
+import GraficosReportes from "@/components/GraficosReportes";
 
-export default function Page() {
+export default function ReportesView() {
   const [filtros, setFiltros] = useState({
     tipoReporte: "",
     fechaInicio: "",
@@ -14,67 +16,113 @@ export default function Page() {
 
   const [datos, setDatos] = useState([]);
 
-  const generarReporte = () => {
-    // Se colocan datos como ejemplo para filtrar información
-    const reportes = [
-      {
-        id: 1,
-        tipo: "Producción de huevos",
-        fecha: "2026-06-01",
-        galpon: "Galpón 1",
-        cantidad: 250,
-      },
-      {
-        id: 2,
-        tipo: "Producción de huevos",
-        fecha: "2026-06-02",
-        galpon: "Galpón 1",
-        cantidad: 2,
-      },
-      {
-        id: 3,
-        tipo: "Clasificación de huevos",
-        fecha: "2026-06-01",
-        galpon: "Galpón 1",
-        cantidad: 10,
-      },
-      {
-        id: 4,
-        tipo: "Clasificación de huevos",
-        fecha: "2026-06-02",
-        galpon: "Galpón 1",
-        cantidad: 11,
-      },
-      {
-        id: 5,
-        tipo: "Mortalidad de aves",
-        fecha: "2026-06-01",
-        galpon: "Galpón 1",
-        cantidad: 1,
-      },
-      {
-        id: 6,
-        tipo: "Mortalidad de aves",
-        fecha: "2026-06-02",
-        galpon: "Galpón 1",
-        cantidad: 3,
-      },
-    ];
+  const [resumen, setResumen] = useState({
+    totalRegistros: 0,
+    totalCantidad: 0,
+    promedio: 0,
+    maximo: 0,
+    minimo: 0,
+    causaPrincipal: "Sin datos",
+    galponPrincipal: "Sin datos",
+  });
 
+  function obtenerDatosReporte(tipo) {
+    switch (tipo) {
+      case "Mortalidad de aves": {
+        const datosMortalidad =
+          JSON.parse(localStorage.getItem("registrosMortalidad")) || [];
+
+        return datosMortalidad;
+      }
+
+      case "Producción de huevos":
+        return JSON.parse(localStorage.getItem("produccion")) || [];
+
+      case "Clasificación de huevos":
+        return JSON.parse(localStorage.getItem("clasificacion")) || [];
+
+      case "Morbilidad de aves":
+        return JSON.parse(localStorage.getItem("morbilidad")) || [];
+
+      default:
+        return [];
+    }
+  }
+  const generarReporte = () => {
+    const reportes = obtenerDatosReporte(filtros.tipoReporte);
     const filtrados = reportes.filter((item) => {
+      const galponSeleccionado =
+        filtros.galpon === "Galpón 1"
+          ? "01"
+          : filtros.galpon === "Galpón 2"
+            ? "02"
+            : "";
+
       const fechaItem = new Date(item.fecha);
+
       const fechaInicio = filtros.fechaInicio
         ? new Date(filtros.fechaInicio)
         : null;
 
-      const fechaFin = filtros.fechaFin ? new Date(filtros.fechaFin) : null;
+      const fechaFin = filtros.fechaFin
+        ? new Date(`${filtros.fechaFin}T23:59:59`)
+        : null;
 
       return (
-        (filtros.tipoReporte === "" || item.tipo === filtros.tipoReporte) &&
-        (filtros.galpon === "" || item.galpon === filtros.galpon) &&
+        (galponSeleccionado === "" || item.galpon === galponSeleccionado) &&
         (!fechaInicio || fechaItem >= fechaInicio) &&
         (!fechaFin || fechaItem <= fechaFin)
       );
+    });
+    const totalCantidad = filtrados.reduce(
+      (acc, item) => acc + Number(item.cantidad),
+      0,
+    );
+
+    const promedio =
+      filtrados.length > 0 ? totalCantidad / filtrados.length : 0;
+
+    const cantidades = filtrados.map((item) => Number(item.cantidad));
+
+    const maximo = cantidades.length > 0 ? Math.max(...cantidades) : 0;
+
+    const minimo = cantidades.length > 0 ? Math.min(...cantidades) : 0;
+
+    const contadorCausas = {};
+
+    filtrados.forEach((item) => {
+      contadorCausas[item.causa] =
+        (contadorCausas[item.causa] || 0) + item.cantidad;
+    });
+
+    const causaPrincipal =
+      Object.keys(contadorCausas).length > 0
+        ? Object.entries(contadorCausas).reduce((a, b) =>
+            a[1] > b[1] ? a : b,
+          )[0]
+        : "Sin datos";
+
+    const contadorGalpones = {};
+    filtrados.forEach((item) => {
+      contadorGalpones[item.galpon] =
+        (contadorGalpones[item.galpon] || 0) + item.cantidad;
+    });
+
+    const galponPrincipal =
+      Object.keys(contadorGalpones).length > 0
+        ? Object.entries(contadorGalpones).reduce((a, b) =>
+            a[1] > b[1] ? a : b,
+          )[0]
+        : "Sin datos";
+
+    setResumen({
+      totalRegistros: filtrados.length,
+      totalCantidad,
+      promedio: Number(promedio.toFixed(2)),
+      maximo,
+      minimo,
+      causaPrincipal,
+      galponPrincipal,
     });
 
     setDatos(filtrados);
@@ -86,13 +134,13 @@ export default function Page() {
         <section className="flex h-full grow flex-col">
           <main className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
             <section className="flex flex-col gap-1">
-              <h1 className="text-3xl font-bold mb-2">
+              <h1 className="text-slate-900 text-3xl font-bold leading-tight tracking-tight">
                 Generación de reportes
               </h1>
               <p className="text-slate-500 text-lg">
                 Genera reportes relacionados con las actividades de tu unidad
                 avícola como producción de huevos, clasificación de huevos,
-                mortalidad y morbilidad de las aves, entre otras...
+                mortalidad y morbilidad de las aves.
               </p>
             </section>
 
@@ -102,9 +150,14 @@ export default function Page() {
               generarReporte={generarReporte}
             />
 
-            <TablaReportes datos={datos} filtros={filtros} />
+            <ResumenReportes
+              resumen={resumen}
+              tipoReporte={filtros.tipoReporte}
+            />
 
-            
+            <GraficosReportes datos={datos} tipoReporte={filtros.tipoReporte} />
+
+            <TablaReportes datos={datos} filtros={filtros} resumen={resumen} />
           </main>
         </section>
       </main>
