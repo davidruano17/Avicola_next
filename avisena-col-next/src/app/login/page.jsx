@@ -1,39 +1,34 @@
-'use client';
+"use client";
 
 import { useState } from 'react';
 import HeaderInicioSesion from '@/components/Header';
 import FooterInicioSesion from '@/components/Footer';
+import { useRouter } from 'next/navigation';
 
-export default function LoginView() {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setErrors({});
-    setLoading(true);
 
-    const newErrors = {};
-    if (!email) newErrors.email = 'El email es requerido';
-    if (!password) newErrors.password = 'La contraseña es requerida';
-    if (email && !email.includes('@')) newErrors.email = 'Email inválido';
+export default function Forminiciosesion() {
+    const [email, setEmail] = useState('');
+    const [password, setPassword] = useState('');
+    const [showPassword, setShowPassword] = useState(false);
+    const [error, setError] = useState(false);
+    const router = useRouter();
 
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      setLoading(false);
-      return;
-    }
+    const handleLogin = (e) => {
+        e.preventDefault();
+        if (email === 'admin' || email === 'aprendiz' || email === 'investigador') {
+            localStorage.setItem('user_token', 'dummy-token');
+            localStorage.setItem('user_id', email);
+            router.push('/dashboard');
+        } else {
+            setError(true);
+            setTimeout(() => setError(false), 5000);
+        }
+    };
 
-    console.log('Iniciando sesión con:', { email, password });
-
-    setTimeout(() => {
-      alert('Inicio de sesión exitoso (simulado)');
-      setLoading(false);
-    }, 1000);
-  };
+    const togglePassword = () => {
+        setShowPassword(!showPassword);
+    };
 
   return (
     <section className="min-h-screen h-screen overflow-hidden flex flex-col bg-slate-50 dark:bg-[#071205]">
@@ -53,10 +48,10 @@ export default function LoginView() {
             </p>
           </header>
 
-          <form onSubmit={handleSubmit} className="p-3 sm:p-6 space-y-2 sm:space-y-4 overflow-y-auto">
-            {errors.general && (
+          <form onSubmit={handleLogin} className="p-3 sm:p-6 space-y-2 sm:space-y-4 overflow-y-auto">
+            {error && (
               <section className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative text-sm font-bold" role="alert">
-                {errors.general}
+                {error}
               </section>
             )}
 
@@ -72,7 +67,7 @@ export default function LoginView() {
                 placeholder="admin / aprendiz / investigador"
                 className="w-full rounded-lg text-[#111b0e] dark:text-white border border-[#d5e7d0] dark:border-emerald-900/50 bg-[#f9fcf8] dark:bg-background-dark/50 h-11 sm:h-12 p-3 sm:p-4 text-base transition-all"
               />
-              {errors.email && <span className="text-sm text-red-600">{errors.email}</span>}
+              {error && <span className="text-sm text-red-600">{error}</span>}
             </section>
 
             <section className="flex flex-col gap-2">
@@ -88,7 +83,7 @@ export default function LoginView() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowPassword((current) => !current)}
+                  onClick={togglePassword}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary text-xl"
                 >
                   <span className="material-symbols-outlined text-base select-none">
@@ -96,15 +91,13 @@ export default function LoginView() {
                   </span>
                 </button>
               </aside>
-              {errors.password && <span className="text-sm text-red-600">{errors.password}</span>}
             </section>
 
             <button
               type="submit"
-              disabled={loading}
               className="flex items-center justify-center w-full bg-[#49E619] hover:bg-[#3dc407] text-black font-black py-4 rounded-xl shadow-lg shadow-emerald-500/20 transition-all active:scale-[0.98] mb-5 uppercase tracking-wide cursor-pointer"
             >
-              {loading ? 'Cargando...' : 'Iniciar Sesión'}
+              Iniciar sesión
             </button>
 
             <section className="relative flex items-center py-2">
