@@ -1,41 +1,95 @@
-'use client';
+import { useState, useEffect } from 'react';
+import { X, PlusCircle, Save, UploadCloud } from 'lucide-react';
 
-import { useState } from 'react';
-export default function FormLoteNuevo({ onSubmit, onClose }) {
-  const [formData, setFormData] = useState({
-    fecha: '',
-    hora: '',
-    lote: '',
-    numerodeaves: '',
-    linea: '',
-    responsable: '',
-    galpon: '',
+export default function FormLoteNuevo({ onSubmit, onClose, initialData = null }) {
+  const [formData, setFormData] = useState(() => ({
+    fecha: initialData?.fecha || '',
+    hora: initialData?.hora || '',
+    numerodeaves: initialData?.numeroAves || '',
+    linea: initialData?.linea || '',
+    pesopromedio: initialData?.pesoPromedio || '',
+    semanadevida: initialData?.semanadevida || '',
+    responsable: initialData?.responsable || '',
+    galpon: initialData?.galpon || '',
+    certificados: initialData?.certificados || {
+      name: '',
+      type: '',
+      data: '',
+    },
+    observaciones: initialData?.observaciones || '',
+  }));
+  const [loteOption, setLoteOption] = useState(() => {
+    if (!initialData?.galpon) return '';
+    return ['1', '2'].includes(initialData.galpon) ? initialData.galpon : 'otro';
   });
-  const [loteOption, setLoteOption] = useState('');
-  const [otroLote, setOtroLote] = useState('');
+  const [otroGalpon, setOtroGalpon] = useState(() => {
+    if (!initialData?.galpon) return '';
+    return ['1', '2'].includes(initialData.galpon) ? '' : initialData.galpon;
+  });
+
+  const isEditing = Boolean(initialData?.id);
+
+  useEffect(() => {
+    if (!initialData) return;
+
+    setFormData({
+      fecha: initialData.fecha || '',
+      hora: initialData.hora || '',
+      numerodeaves: initialData.numeroAves || '',
+      linea: initialData.linea || '',
+      pesopromedio: initialData.pesoPromedio || '',
+      semanadevida: initialData.semanadevida || '',
+      responsable: initialData.responsable || '',
+      galpon: initialData.galpon || '',
+      certificados: initialData.certificados || {
+        name: '',
+        type: '',
+        data: '',
+      },
+      observaciones: initialData.observaciones || '',
+    });
+
+    if (['1', '2'].includes(initialData.galpon)) {
+      setLoteOption(initialData.galpon);
+      setOtroGalpon('');
+    } else if (initialData.galpon) {
+      setLoteOption('otro');
+      setOtroGalpon(initialData.galpon);
+    } else {
+      setLoteOption('');
+      setOtroGalpon('');
+    }
+  }, [initialData]);
 
   const handleLoteChange = (e) => {
     const value = e.target.value;
     setLoteOption(value);
 
     if (value === 'otro') {
-      setOtroLote('');
-      setFormData({ ...formData, lote: '' });
+      setOtroGalpon('');
+      setFormData({ ...formData, galpon: '' });
       return;
     }
 
-    setFormData({ ...formData, lote: value });
+    setFormData({ ...formData, galpon: value });
   };
 
-  const handleSintomasChange = (e) => {
-    const options = e.target.options;
-    const selected = [];
-    for (let i = 0; i < options.length; i++) {
-      if (options[i].selected) {
-        selected.push(options[i].value);
-      }
-    }
-    setFormData({ ...formData, sintomas: selected });
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      setFormData({
+        ...formData,
+        certificados: {
+          name: file.name,
+          type: file.type,
+          data: event.target.result,
+        },
+      });
+    };
+    reader.readAsDataURL(file);
   };
 
   const handleSubmit = (e) => {
@@ -44,138 +98,185 @@ export default function FormLoteNuevo({ onSubmit, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex justify-center items-center backdrop-blur-sm p-4 overflow-y-auto">
-      <aside className="w-full max-w-4xl max-h-[90vh] m-auto overflow-y-auto">
-        <section className="bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/10 rounded-xl p-6 shadow-xl relative text-left">
+    <div className="fixed inset-0 z-50 bg-black/60 flex justify-center items-center backdrop-blur-sm p-4 overflow-y-auto">
+      <aside className="w-full max-w-2xl max-h-[90vh] m-auto overflow-y-auto">
+        <section className="bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/10 rounded-3xl p-6 shadow-2xl relative text-left">
           <button
             type="button"
             onClick={onClose}
             className="absolute top-4 right-4 text-slate-400 hover:text-red-500 transition-colors border-none bg-transparent cursor-pointer"
           >
-            <span className="material-icons">close</span>
+            <X className="h-5 w-5" />
           </button>
 
-          <section className="flex items-center gap-2 mb-6">
-            <span className="material-icons text-primary">assignment_add</span>
-            <h3 className="text-lg font-semibold">Nuevo Lote</h3>
-          </section>
+          <div className="flex items-center gap-4 mb-6">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-primary/10 text-primary">
+              <PlusCircle className="h-5 w-5" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-semibold">Nuevo Galpón</h3>
+              <p className="text-sm text-slate-500 dark:text-slate-400">Registra aquí la información del lote y sus certificados.</p>
+            </div>
+          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Fecha y Hora */}
-            <section className="grid grid-cols-2 gap-4">
-              <section>
-                <label className="block text-xs font-bold uppercase text-primary mb-2">Fecha de ingreso</label>
+          <form onSubmit={handleSubmit} className="grid gap-5">
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500  mb-2">Fecha de ingreso</label>
                 <input
                   id="f-fecha"
-                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white h-10 px-3 text-sm"
-                  placeholder="Fecha de ingreso"
+                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white h-11 px-3 text-sm"
                   required
                   type="date"
                   value={formData.fecha}
                   onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
                 />
-              </section>
-
-              <section>
-                <label className="block text-xs font-bold uppercase text-primary mb-2">Hora de ingreso</label>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Hora de ingreso</label>
                 <input
                   id="f-hora"
-                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white h-10 px-3 text-sm"
+                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white h-11 px-3 text-sm"
                   required
                   type="time"
                   value={formData.hora}
                   onChange={(e) => setFormData({ ...formData, hora: e.target.value })}
                 />
-              </section>
-            </section>
-
-            {/* Lote y Número de aves */}
-            <section className="grid grid-cols-2 gap-4">
-              <section>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Lote</label>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Galpón</label>
                 <select
-                  id="lote"
-                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm h-10 px-3"
+                  id="galpon"
+                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
                   required
                   value={loteOption}
                   onChange={handleLoteChange}
                 >
-                  <option value="">Seleccionar lote...</option>
+                  <option value="">Seleccionar galpón...</option>
                   <option value="1">1</option>
                   <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                  <option value="otro">Otro</option>
                 </select>
-                {loteOption === 'otro' && (
-                  <section className="mt-3">
-                    <input
-                      type="text"
-                      className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm h-10 px-3"
-                      placeholder="Ingrese nombre del lote"
-                      value={otroLote}
-                      required
-                      onChange={(e) => {
-                        setOtroLote(e.target.value);
-                        setFormData({ ...formData, lote: e.target.value });
-                      }}
-                    />
-                  </section>
-                )}
-              </section>
 
-              <section>
+              </div>
+            </div>
+
+
+
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Peso promedio</label>
+                <input
+                  id="pesopromedio"
+                  type="text"
+                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
+                  placeholder="Peso promedio"
+                  required
+                  value={formData.pesopromedio}
+                  onChange={(e) => setFormData({ ...formData, pesopromedio: e.target.value })}
+                />
+              </div>
+              <div>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Número de aves</label>
                 <input
                   id="numeroAves"
                   type="number"
-                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm h-10 px-3"
+                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
                   placeholder="Cantidad de aves"
                   required
                   value={formData.numerodeaves}
                   onChange={(e) => setFormData({ ...formData, numerodeaves: e.target.value })}
                 />
-              </section>
-            </section>
-            
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Semana de vida</label>
+                <input
+                  id="semanadevida"
+                  type="number"
+                  min="1"
+                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
+                  placeholder="Semana de vida"
+                  required
+                  value={formData.semanadevida}
+                  onChange={(e) => setFormData({ ...formData, semanadevida: e.target.value })}
+                />
+              </div>
+            </div>
 
-            <section>
-              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Líneas de aves</label>
-              <select
-                id="linea"
-                className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm h-10 px-3 border"
-                required
-                value={formData.linea}
-                onChange={(e) => setFormData({ ...formData, linea: e.target.value })}
-              >
-                <option value="">Líneas de aves</option>
-                <option value="1">Hy-line brown</option>
-                <option value="2">isa brown</option>
-                <option value="3">Lohmann brown</option>
-                <option value="4">Babcock</option>
-                <option value="5">Dekalb</option>
-              </select>
-            </section>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Línea de aves</label>
+                <select
+                  id="linea"
+                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
+                  required
+                  value={formData.linea}
+                  onChange={(e) => setFormData({ ...formData, linea: e.target.value })}
+                >
+                  <option value="">Seleccionar línea...</option>
+                  <option value="Hy-line brown">Hy-line brown</option>
+                  <option value="isa brown">isa brown</option>
+                  <option value="Lohmann brown">Lohmann brown</option>
+                  <option value="Babcock">Babcock</option>
+                  <option value="Dekalb">Dekalb</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Responsable</label>
+                <input
+                  id="responsable"
+                  type="text"
+                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
+                  placeholder="Nombre del responsable"
+                  required
+                  value={formData.responsable}
+                  onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Certificados</label>
+                <label
+                  htmlFor="archivo"
+                  className="flex items-center justify-between gap-2 w-full rounded-2xl border border-slate-200 dark:border-primary/20 bg-slate-50 dark:bg-background-dark px-4 py-3 text-sm text-slate-600 dark:text-slate-300 cursor-pointer transition-colors hover:border-primary"
+                >
+                  <span className="flex items-center gap-2">
+                    <UploadCloud className="h-4 w-4" />
+                    {formData.certificados?.name || 'Seleccionar archivo'}
+                  </span>
+                  <span className="text-xs text-slate-400"></span>
+                </label>
+                <input
+                  type="file"
+                  id="archivo"
+                  name="archivo"
+                  accept=".pdf,.jpg,.png"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+              </div>
+            </div>
 
-            {/* Responsable */}
-            <section>
-              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Responsable</label>
-              <input
-                id="responsable"
-                type="text"
-                className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white transition-all text-sm h-10 px-3 border"
-                placeholder="Nombre del responsable"
-                required
-                value={formData.responsable}
-                onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
+
+
+
+
+
+            <div>
+              <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Observaciones</label>
+              <textarea
+                id="observaciones"
+                rows="4"
+                className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm px-3 py-3"
+                placeholder="Escribe aquí cualquier observación o nota del lote"
+                value={formData.observaciones}
+                onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
               />
-            </section>
-            
+            </div>
+
             <button
-              className="w-full bg-primary hover:bg-[#3dbd14] text-black font-black py-4 px-6 rounded-lg transition-all flex justify-center items-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] border-none cursor-pointer text-base min-h-[56px]"
+              className="w-full bg-primary hover:bg-[#3dbd14] text-black font-black py-4 px-6 rounded-2xl transition-all flex justify-center items-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] border-none cursor-pointer text-base min-h-[56px]"
               type="submit"
             >
-              <span className="material-icons text-sm">save</span>
+              <Save className="h-4 w-4" />
               Guardar Registro
             </button>
           </form>
