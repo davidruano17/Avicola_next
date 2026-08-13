@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
-import FormLoteNuevo from '@/components/FormLoteNuevo';
+import FormLoteNuevo from '@/components/formlotenuevo';
 
 export default function AdminGalponesView() {
   const [showModal, setShowModal] = useState(false);
