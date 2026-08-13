@@ -226,15 +226,14 @@ export default function MorbilidadView() {
                               if (lote === '2') lote = 'L2';
                               if (!lote.startsWith('L') && !lote.startsWith('l')) lote = 'L' + lote;
 
-                              navigate('/tratamiento', {
-                                state: {
-                                  autofill: true,
-                                  galpon,
-                                  lote,
-                                  fechaInicio: registro.fecha || '',
-                                  observaciones: `Tratamiento por morbilidad: ${registro.sintomas || ''}`
-                                }
-                              });
+                              // Guardar datos en localStorage para tratamiento
+                              localStorage.setItem('tratamientoAutofill', JSON.stringify({
+                                galpon,
+                                lote,
+                                fechaInicio: registro.fecha || '',
+                                observaciones: `Tratamiento por morbilidad: ${registro.sintomas || ''}`
+                              }));
+                              router.push('/tratamiento');
                             }}
                             className="bg-primary/10 hover:bg-primary text-primary hover:text-slate-900 px-4 py-2 rounded-lg transition-colors text-xs font-bold flex items-center justify-center gap-1 mx-auto border-none cursor-pointer min-w-[110px]"
                           >

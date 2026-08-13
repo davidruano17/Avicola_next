@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import FormTratamiento from '@/components/FormTratamiento';
 
 
@@ -11,26 +11,22 @@ export default function TratamientoView() {
   const [notificacion, setNotificacion] = useState(null);
   const [defaultFormData, setDefaultFormData] = useState(null);
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
     const tratamientosGuardados = localStorage.getItem('tratamientos');
     if (tratamientosGuardados) {
       setTratamientos(JSON.parse(tratamientosGuardados));
     }
-  }, []);
 
-  useEffect(() => {
-    if (searchParams.get('autofill') === 'true') {
-      setDefaultFormData({
-        fechaInicio: searchParams.get('fechaInicio') || '',
-        galpon: searchParams.get('galpon') || '1',
-        lote: searchParams.get('lote') || 'L1',
-        observaciones: searchParams.get('observaciones') || '',
-      });
+    // Revisar si hay datos de autofill en localStorage
+    const autofillData = localStorage.getItem('tratamientoAutofill');
+    if (autofillData) {
+      setDefaultFormData(JSON.parse(autofillData));
       setMostrarFormulario(true);
+      // Limpiar después de usarlo
+      localStorage.removeItem('tratamientoAutofill');
     }
-  }, [searchParams]);
+  }, []);
 
   const showNotification = (mensaje) => {
     setNotificacion(mensaje);
