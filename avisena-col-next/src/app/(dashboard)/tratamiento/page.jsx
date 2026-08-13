@@ -1,15 +1,16 @@
-'use client';
+"use client";
 
-import { useState, useEffect, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
-import FormTratamiento from '@/features/galpones/FormTratamiento';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import FormTratamiento from '@/components/FormTratamiento';
 
 
-function TratamientoContent() {
+export default function TratamientoView() {
   const [tratamientos, setTratamientos] = useState([]);
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [notificacion, setNotificacion] = useState(null);
   const [defaultFormData, setDefaultFormData] = useState(null);
+  const router = useRouter();
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -28,8 +29,6 @@ function TratamientoContent() {
         observaciones: searchParams.get('observaciones') || '',
       });
       setMostrarFormulario(true);
-      // Limpia los parámetros de la URL para que futuras aperturas queden en blanco
-      window.history.replaceState({}, document.title, window.location.pathname);
     }
   }, [searchParams]);
 
@@ -95,14 +94,24 @@ function TratamientoContent() {
   };
 
   return (
-    <section className="layout-container">
+     <section className="layout-container">
       <main className="main-container w-full">
         <section className="mb-8 flex justify-between items-center">
           <div>
             <h1 className="text-4xl font-black mb-2 text-slate-900 dark:text-white">Gestión de Tratamientos</h1>
             <p className="text-slate-500 dark:text-slate-400">Registro y seguimiento de tratamientos aplicados.</p>
           </div>
+                    <button
+                            onClick={() => {
+                              setDefaultFormData(null);
+                              setMostrarFormulario(true);
+                            }}
+                            className="flex items-center justify-center gap-2 rounded-lg h-14 px-8 min-w-[220px] bg-primary hover:bg-[#3dbd14] text-black text-sm font-black shadow-lg shadow-primary/20 active:scale-[0.98] transition-all border-none cursor-pointer"
+                          >
+                            Agregar Nuevo Tratamiento
+                    </button>
         </section>
+        
 
         {notificacion && (
           <article className="fixed bottom-4 right-4 bg-emerald-500 text-white px-6 py-4 rounded-lg shadow-lg animate-pulse z-40">
@@ -221,13 +230,5 @@ function TratamientoContent() {
         )}
       </main>
     </section>
-  );
-}
-
-export default function Page() {
-  return (
-    <Suspense fallback={null}>
-      <TratamientoContent />
-    </Suspense>
   );
 }

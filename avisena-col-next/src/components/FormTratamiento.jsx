@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState } from 'react';
 
@@ -6,7 +6,6 @@ export default function FormTratamiento({ onSubmit, onClose, defaultData }) {
   const [formData, setFormData] = useState({
     fechaInicio: defaultData?.fechaInicio || '',
     galpon: defaultData?.galpon || '1',
-    lote: defaultData?.lote || 'L1',
     medicamento: defaultData?.medicamento || '',
     tipo: defaultData?.tipo || 'Antimicrobiano',
     dosis: defaultData?.dosis || '',
@@ -23,7 +22,7 @@ export default function FormTratamiento({ onSubmit, onClose, defaultData }) {
 
   return (
     <div className="fixed inset-0 z-50 bg-black/50 flex justify-center items-center backdrop-blur-sm p-4 overflow-y-auto">
-      <aside className="w-full max-w-4xl max-h-[90vh] m-auto overflow-y-auto">
+      <aside className="w-full max-w-2xl max-h-[90vh] m-auto overflow-y-auto">
         <section className="bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/10 rounded-xl p-6 shadow-xl relative text-left">
           <button
             onClick={onClose}
@@ -38,20 +37,20 @@ export default function FormTratamiento({ onSubmit, onClose, defaultData }) {
           </section>
 
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Fecha Inicio */}
-            <section>
-              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Fecha de Tratamiento</label>
-              <input
-                type="date"
-                value={formData.fechaInicio}
-                onChange={(e) => setFormData({ ...formData, fechaInicio: e.target.value })}
-                required
-                className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary dark:text-white transition-all h-10 border"
-              />
-            </section>
-
+           
             {/* Galpón y Lote */}
-            <section className="grid grid-cols-2 gap-4">
+            <section className="grid grid-cols-3 gap-4">
+               {/* Fecha Inicio */}
+                <section>
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Fecha de Tratamiento</label>
+                  <input
+                    type="date"
+                    value={formData.fechaInicio}
+                    onChange={(e) => setFormData({ ...formData, fechaInicio: e.target.value })}
+                    required
+                    className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary dark:text-white transition-all h-10 border"
+                  />
+                </section>
               <section>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Galpón</label>
                 <select
@@ -61,27 +60,8 @@ export default function FormTratamiento({ onSubmit, onClose, defaultData }) {
                 >
                   <option value="1">Galpón 1</option>
                   <option value="2">Galpón 2</option>
-                  <option value="3">Galpón 3</option>
-                  <option value="4">Galpón 4</option>
                 </select>
               </section>
-              <section>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Lote</label>
-                <select
-                  value={formData.lote}
-                  onChange={(e) => setFormData({ ...formData, lote: e.target.value })}
-                  className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary dark:text-white transition-all h-10 border"
-                >
-                  <option value="1">Lote 1</option>
-                  <option value="2">Lote 2</option>
-                  <option value="3">Lote 3</option>
-                  <option value="4">Lote 4</option>
-                </select>
-              </section>
-            </section>
-
-            {/* Medicamento y Tipo */}
-            <section className="grid grid-cols-2 gap-4">
               <section>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Medicamento</label>
                 <input
@@ -93,6 +73,11 @@ export default function FormTratamiento({ onSubmit, onClose, defaultData }) {
                   className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary dark:text-white transition-all h-10 border"
                 />
               </section>
+            </section>
+
+            {/* Medicamento y Tipo */}
+            <section className="grid grid-cols-3 gap-4">
+              
               <section>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Tipo</label>
                 <select
@@ -107,10 +92,6 @@ export default function FormTratamiento({ onSubmit, onClose, defaultData }) {
                   <option value="Vacuna">Vacuna</option>
                 </select>
               </section>
-            </section>
-
-            {/* Dosis y Vía de Administración */}
-            <section className="grid grid-cols-2 gap-4">
               <section>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Dosis / Cantidad</label>
                 <input
@@ -135,6 +116,11 @@ export default function FormTratamiento({ onSubmit, onClose, defaultData }) {
                   <option value="Tópico">Tópico</option>
                 </select>
               </section>
+            </section>
+
+            {/* Dosis y Vía de Administración */}
+            <section className="grid grid-cols-2 gap-4">
+              
             </section>
 
             {/* Duración y Personal Responsable */}

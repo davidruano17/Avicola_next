@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import { useState } from 'react';
 export default function FormMorbilidad({ onSubmit, onClose }) {
@@ -49,9 +49,9 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
 
           <form onSubmit={handleSubmit} className="space-y-3">
             {/* Responsable y Fecha de Reporte */}
-            <section className="grid grid-cols-2 gap-4">
+            <section className="grid grid-cols-3 gap-4">
               <section>
-                <label className="block text-xs font-bold uppercase text-primary mb-2">Responsable</label>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Responsable</label>
                 <input
                   id="f-responsable"
                   className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white h-10 px-3 text-sm"
@@ -64,7 +64,7 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
               </section>
 
               <section>
-                <label className="block text-xs font-bold uppercase text-primary mb-2">Fecha de Reporte</label>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Fecha de Reporte</label>
                 <input
                   id="f-fecha"
                   className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white h-10 px-3 text-sm"
@@ -74,10 +74,6 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
                   onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
                 />
               </section>
-            </section>
-
-            {/* Galpón y Lote */}
-            <section className="grid grid-cols-2 gap-4">
               <section>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Galpón</label>
                 <select
@@ -94,47 +90,10 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
                   <option value="4">4</option>
                 </select>
               </section>
-
-              <section>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Lote</label>
-                <select
-                  id="lote"
-                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm h-10 px-3"
-                  required
-                  value={formData.lote}
-                  onChange={(e) => setFormData({ ...formData, lote: e.target.value })}
-                >
-                  <option value="">Seleccionar lote...</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
-                </select>
-              </section>
             </section>
 
-            {/* Síntomas / Causas Probables */}
-            <section>
-              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Síntomas / Causas Probables</label>
-              <select
-                id="f-sintomas"
-                className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm min-h-[160px] p-3 border"
-                multiple
-                required
-                value={formData.sintomas}
-                onChange={handleSintomasChange}
-              >
-                <option value="Decaimiento">Decaimiento</option>
-                <option value="Falta de apetito">Falta de apetito</option>
-                <option value="Problemas respiratorios">Problemas respiratorios</option>
-                <option value="Diarrea">Diarrea</option>
-                <option value="Secreción nasal">Secreción nasal</option>
-                <option value="Plumaje erizado">Plumaje erizado</option>
-              </select>
-            </section>
-
-            {/* Grado de Afectación y Aves Afectadas */}
-            <section className="grid grid-cols-2 gap-4">
+            {/* Galpón y Lote */}
+            <section className="grid grid-cols-3 gap-4">
               <section>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Grado de Afectación</label>
                 <select
@@ -162,10 +121,7 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
                   onChange={(e) => setFormData({ ...formData, cantidad: e.target.value })}
                 />
               </section>
-            </section>
-
-            {/* Acción Inmediata */}
-            <section>
+              <section>
               <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Acción Inmediata</label>
               <select
                 id="f-accion"
@@ -181,19 +137,37 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
                 <option value="Revisión Veterinaria">Revisión Veterinaria</option>
               </select>
             </section>
-
-            {/* Observaciones Técnicas */}
-            <section>
-              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Observaciones Técnicas</label>
-              <textarea
-                id="f-observaciones"
-                className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm resize-none p-3 border"
-                placeholder="Detalles adicionales observados..."
-                rows="4"
-                value={formData.observaciones}
-                onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-              ></textarea>
             </section>
+
+            
+            {/* Grado de Afectación y Aves Afectadas */}
+            <section className="grid grid-cols-2 gap-4">
+              {/* Síntomas / Causas Probables */}
+                
+                <section>
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Síntomas / Causas Probables</label>
+                  <textarea
+                    id="f-sintomas"
+                    className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm resize-none p-3 border"
+                    placeholder="Detalles adicionales observados..."
+                    rows="4"
+                    value={formData.Sintomas}
+                    onChange={(e) => setFormData({ ...formData, Sintomas: e.target.value })}
+                  ></textarea>
+                </section>
+                <section>
+                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Observaciones Técnicas</label>
+                  <textarea
+                    id="f-observaciones"
+                    className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm resize-none p-3 border"
+                    placeholder="Detalles adicionales observados..."
+                    rows="4"
+                    value={formData.observaciones}
+                    onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+                  ></textarea>
+                </section>
+                
+            </section>        
 
             <button
               className="w-full bg-primary hover:bg-[#3dbd14] text-black font-black py-4 px-6 rounded-lg transition-all flex justify-center items-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] border-none cursor-pointer text-base min-h-[56px]"
