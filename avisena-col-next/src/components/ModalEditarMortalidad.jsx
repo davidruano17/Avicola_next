@@ -67,7 +67,7 @@ export default function ModalEditarMortalidad({
         >
           <section className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-border-dark">
             <section className="flex items-center gap-2">
-              <span className="material-icons text-[#49E619]">edit</span>
+              <span className="material-icons text-primary">edit</span>
               <h2 className="text-lg font-bold justify-center">
                 Editar registro de mortalidad
               </h2>
@@ -208,7 +208,7 @@ export default function ModalEditarMortalidad({
                   Cancelar
                 </button>
                 <button
-                  className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[#49E619] hover:bg-[#3dc407] px-6 font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
+                  className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-primary hover:bg-[#58db25] px-6 font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
                   type="submit"
                 >
                   <span className="material-icons text-sm">save</span>

@@ -47,7 +47,7 @@ export default function TablaMortalidad({
         <section className="bg-white dark:bg-card-dark border border-slate-200 dark:border-border-dark rounded-xl shadow-sm overflow-hidden flex flex-col h-full">
           <section className="p-6 border-b border-slate-200 dark:border-border-dark flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <section className="flex items-center gap-2">
-              <span className="material-icons text-[#49E619]">history</span>
+              <span className="material-icons text-primary">history</span>
               <h2 className="text-lg font-semibold">Historial de Mortalidad</h2>
             </section>
             <section className="relative">

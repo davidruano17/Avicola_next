@@ -58,7 +58,7 @@ export default function FiltrosGestionUsuarios({
         <section className="flex items-end">
           <button
             onClick={aplicarFiltros}
-            className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-[#49E619] hover:bg-[#58db25] px-6 text-sm font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
+            className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-primary hover:bg-[#58db25] px-6 text-sm font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
           >
             <span className="material-symbols-outlined">filter_list</span>
             <span>Filtrar</span>
