@@ -211,7 +211,9 @@ export default function DashboardLayout({ children }) {
                   <Link href="/registro_clasificacion" className="text-[12px] font-medium text-[#64748b] dark:text-[#becbb3] text-left no-underline transition-colors duration-200 hover:text-primary">Clasificación Huevos</Link>
                   <Link href="/mortalidad" className="text-[12px] font-medium text-[#64748b] dark:text-[#becbb3] text-left no-underline transition-colors duration-200 hover:text-primary">Mortalidad</Link>
                   <Link href="/morbilidad" className="text-[12px] font-medium text-[#64748b] dark:text-[#becbb3] text-left no-underline transition-colors duration-200 hover:text-primary">Morbilidad</Link>
+                  <Link href="/tratamiento" className="text-[12px] font-medium text-[#64748b] dark:text-[#becbb3] text-left no-underline transition-colors duration-200 hover:text-primary">Tratamiento</Link>
                 </nav>
+
               )}
             </section>
             <NavLink to="/reportes" className={({ isActive }) => `flex items-center h-12 rounded-lg text-slate-600 dark:text-[#becbb3] hover:bg-[#f1f5f9] dark:hover:bg-[#162035] hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full cursor-pointer box-border no-underline ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-4'} ${isActive ? 'bg-[#f1f5f9] dark:bg-[#162035] text-[#49e619] dark:text-white' : ''}`}>

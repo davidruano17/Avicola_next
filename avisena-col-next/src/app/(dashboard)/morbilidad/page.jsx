@@ -1,10 +1,11 @@
-'use client';
+"use client";
 
-import { useRouter } from 'next/navigation';
 import { useState, useEffect } from 'react';
-import FormMorbilidad from '@/features/galpones/FormMorbilidad';
+import { useRouter } from 'next/navigation';
+import FormMorbilidad from '@/components/FormMorbilidad';
 
-export default function Page() {
+
+export default function MorbilidadView() {
   const [showModal, setShowModal] = useState(false);
   const [registros, setRegistros] = useState([]);
   const [buscar, setBuscar] = useState('');
@@ -23,7 +24,7 @@ export default function Page() {
     }
     const data = JSON.parse(localStorage.getItem('historialMorbilidad')) || [];
     setRegistros(data);
-  }, [navigate]);
+  }, [router]);
 
   const showNotification = (title, message) => {
     setToast({ show: true, title, message });
@@ -125,7 +126,7 @@ export default function Page() {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
   };
 
-  return (
+     return (
     <section className="flex h-full grow flex-col">
       <main className="flex flex-1 flex-col py-8 px-6 md:px-8 lg:px-12 w-full">
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 justify-between">
@@ -225,14 +226,14 @@ export default function Page() {
                               if (lote === '2') lote = 'L2';
                               if (!lote.startsWith('L') && !lote.startsWith('l')) lote = 'L' + lote;
 
-                              const params = new URLSearchParams({
-                                autofill: 'true',
+                              // Guardar datos en localStorage para tratamiento
+                              localStorage.setItem('tratamientoAutofill', JSON.stringify({
                                 galpon,
                                 lote,
                                 fechaInicio: registro.fecha || '',
                                 observaciones: `Tratamiento por morbilidad: ${registro.sintomas || ''}`
-                              });
-                              router.push(`/tratamiento?${params.toString()}`);
+                              }));
+                              router.push('/tratamiento');
                             }}
                             className="bg-primary/10 hover:bg-primary text-primary hover:text-slate-900 px-4 py-2 rounded-lg transition-colors text-xs font-bold flex items-center justify-center gap-1 mx-auto border-none cursor-pointer min-w-[110px]"
                           >
