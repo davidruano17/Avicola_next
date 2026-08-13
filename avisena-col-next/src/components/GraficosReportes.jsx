@@ -21,7 +21,7 @@ ChartJS.register(
   Legend,
 );
 
-export default function GraficoReportes({ datos, tipoReporte }) {
+export default function GraficosReportes({ datos, tipoReporte }) {
   if (!datos || datos.length === 0) {
     return (
       <section className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl shadow-sm p-6 mb-6">
