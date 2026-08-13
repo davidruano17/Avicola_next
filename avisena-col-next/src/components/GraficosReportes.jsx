@@ -1,4 +1,4 @@
-'use client';
+"use client";
 
 import {
   Chart as ChartJS,
@@ -70,7 +70,9 @@ export default function GraficoReportes({ datos, tipoReporte }) {
     cantidadesPorFecha[fecha] =
       (cantidadesPorFecha[fecha] || 0) + Number(item.cantidad || 0);
   });
-  const fechas = Object.keys(cantidadesPorFecha);
+  const fechas = Object.keys(cantidadesPorFecha).sort(
+    (a, b) => new Date(a) - new Date(b),
+  );
   const cantidades = fechas.map((fecha) => cantidadesPorFecha[fecha]);
   const data = {
     labels: fechas,
@@ -146,7 +148,7 @@ export default function GraficoReportes({ datos, tipoReporte }) {
           Comportamiento del reporte
         </h2>
         <p className="text-lg text-slate-500 mt-1">
-          Visualización de la cantidad registrada durante el período
+          Visualización del comportamiento de los registros durante el período
           seleccionado.
         </p>
       </section>

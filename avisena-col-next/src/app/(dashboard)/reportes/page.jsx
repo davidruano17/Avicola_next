@@ -35,14 +35,37 @@ export default function ReportesView() {
         return datosMortalidad;
       }
 
-      case "Producción de huevos":
-        return JSON.parse(localStorage.getItem("produccion")) || [];
+      case "Producción de huevos": {
+        const producciones =
+          JSON.parse(localStorage.getItem("produccionesPendientes")) || [];
 
-      case "Clasificación de huevos":
-        return JSON.parse(localStorage.getItem("clasificacion")) || [];
+        return producciones.map((item) => ({
+          ...item,
+          cantidad:
+            Number(item.huevosBuenos || 0) +
+            Number(item.huevosRotos || 0) +
+            Number(item.descarte || 0),
+        }));
+      }
 
-      case "Morbilidad de aves":
-        return JSON.parse(localStorage.getItem("morbilidad")) || [];
+      case "Clasificación de huevos": {
+        const clasificaciones =
+          JSON.parse(localStorage.getItem("avisena_storage")) || [];
+
+        return clasificaciones.map((item) => ({
+          ...item,
+          cantidad: Number(item.unidades || 0),
+        }));
+      }
+
+      case "Morbilidad de aves": {
+        const morbilidad = JSON.parse(localStorage.getItem("morbilidad")) || [];
+
+        return morbilidad.map((item) => ({
+          ...item,
+          cantidad: Number(item.cantidad || 0),
+        }));
+      }
 
       default:
         return [];
@@ -51,17 +74,10 @@ export default function ReportesView() {
   const generarReporte = () => {
     const reportes = obtenerDatosReporte(filtros.tipoReporte);
     const filtrados = reportes.filter((item) => {
-      const galponSeleccionado =
-        filtros.galpon === "Galpón 1"
-          ? "01"
-          : filtros.galpon === "Galpón 2"
-            ? "02"
-            : "";
-
       const fechaItem = new Date(item.fecha);
 
       const fechaInicio = filtros.fechaInicio
-        ? new Date(filtros.fechaInicio)
+        ? new Date(`${filtros.fechaInicio}T00:00:00`)
         : null;
 
       const fechaFin = filtros.fechaFin
@@ -69,7 +85,7 @@ export default function ReportesView() {
         : null;
 
       return (
-        (galponSeleccionado === "" || item.galpon === galponSeleccionado) &&
+        (!filtros.galpon || item.galpon === filtros.galpon) &&
         (!fechaInicio || fechaItem >= fechaInicio) &&
         (!fechaFin || fechaItem <= fechaFin)
       );
