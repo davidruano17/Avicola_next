@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import ModalHistorial from '@/components/ModalHistorial';
+import { Link } from "react-router-dom";
+import ModalHistorial from "@/components/ModalHistorial";
 
-const Page = () => {
+const DashboardProduccion = () => {
   const obtenerFechaFormateada = () => {
     const ahora = new Date();
     const meses = [
@@ -31,23 +31,20 @@ const Page = () => {
 
   // Formulario Recolección
   const [fechaRecoleccion, setFechaRecoleccion] = useState("2026-05-28");
-  const [edadSemanasRecoleccion, setEdadSemanasRecoleccion] = useState("22");
+  const [edadSemanasRecoleccion, setEdadSemanasRecoleccion] = useState("");
   const [nombreTrabajador, setNombreTrabajador] = useState("John Doe");
   const [galponOrigen, setGalponOrigen] = useState("Galpón A - Ponedoras");
-  const [huevosBuenos, setHuevosBuenos] = useState("1220");
-  const [huevosRotosInput, setHuevosRotosInput] = useState("20");
+  const [huevosBuenos, setHuevosBuenos] = useState("0");
+  const [huevosRotosInput, setHuevosRotosInput] = useState("0");
   const [descarte, setDescarte] = useState("0");
   const [notas, setNotas] = useState("");
   const [lote, setLote] = useState("");
   const [lineaGenetica, setLineaGenetica] = useState("");
 
-  const [produccionesPendientes, setProduccionesPendientes] = useState([]);
-  const [produccionesPendientesCargadas, setProduccionesPendientesCargadas] = useState(false);
-  useEffect(() => {
+  const [produccionesPendientes, setProduccionesPendientes] = useState(() => {
     const saved = localStorage.getItem("produccionesPendientes");
-    setProduccionesPendientes(saved ? JSON.parse(saved) : []);
-    setProduccionesPendientesCargadas(true);
-  }, []);
+    return saved ? JSON.parse(saved) : [];
+  });
   const [produccionEnEdicion, setProduccionEnEdicion] = useState(null);
 
   const [clasificacionData, setClasificacionData] = useState({
@@ -97,7 +94,7 @@ const Page = () => {
   const sueltos = totalHuevos % 30;
   const fcrScore =
     totalHuevos > 0
-      ? (alimentoConsumido / (totalHuevos / 12)).toFixed(1)
+      ? (alimentoConsumido / (totalHuevos / 30)).toFixed(1)
       : "0.0";
 
   const handleRecoleccionSubmit = (e) => {
@@ -198,9 +195,11 @@ const Page = () => {
   }, [isModalRecoleccionOpen, isModalAlimentoOpen, isHistorialOpen]);
 
   useEffect(() => {
-    if (!produccionesPendientesCargadas) return;
-    localStorage.setItem("produccionesPendientes", JSON.stringify(produccionesPendientes));
-  }, [produccionesPendientes, produccionesPendientesCargadas]);
+    localStorage.setItem(
+      "produccionesPendientes",
+      JSON.stringify(produccionesPendientes),
+    );
+  }, [produccionesPendientes]);
 
   // Exportar historial a CSV
   const handleExportHistorial = () => {
@@ -525,8 +524,6 @@ const Page = () => {
           </section>
 
           <aside className="space-y-8">
-            
-
             <article className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-slate-100/80 dark:border-zinc-800/80 shadow-sm">
               <header className="flex items-center gap-2 mb-6">
                 <span className="material-symbols-outlined text-[#2ea66d] font-bold">
@@ -742,15 +739,8 @@ const Page = () => {
                     onChange={(e) => setGalponOrigen(e.target.value)}
                     className="mt-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200/50 dark:border-zinc-800 rounded-xl py-2.5 px-3 text-sm focus:ring-1 focus:ring-[#2ea66d] focus:border-[#2ea66d] font-semibold text-slate-800 dark:text-slate-200"
                   >
-                    <option value="Galpón A - Ponedoras">
-                      Galpón A - Ponedoras
-                    </option>
-                    <option value="Galpón B - Ponedoras">
-                      Galpón B - Ponedoras
-                    </option>
-                    <option value="Galpón C - Ponedoras">
-                      Galpón C - Ponedoras
-                    </option>
+                    <option value="Galpón A - Ponedoras">Galpón 1</option>
+                    <option value="Galpón B - Ponedoras">Galpón 2</option>
                   </select>
                 </label>
               </div>
@@ -758,19 +748,21 @@ const Page = () => {
               <div className="grid grid-cols-2 gap-4">
                 <label className="flex flex-col text-xs font-bold text-slate-500 uppercase">
                   Lote
-                  <input
-                    type="text"
+                  <select
                     value={lote}
                     onChange={(e) => setLote(e.target.value)}
-                    className="mt-1.5 bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-1 focus:ring-[#2ea66d] focus:border-[#2ea66d] font-semibold text-slate-800"
-                  />
+                    className="mt-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200/50 dark:border-zinc-800 rounded-xl py-2.5 px-3 text-sm focus:ring-1 focus:ring-[#2ea66d] focus:border-[#2ea66d] font-semibold text-slate-800 dark:text-slate-200"
+                  >
+                    <option value="Lote A">Galpón 1</option>
+                    <option value="Lote B">Galpón 2</option>
+                  </select>
                 </label>
                 <label className="flex flex-col text-xs font-bold text-slate-500 uppercase">
                   Línea Genética
                   <select
                     value={lineaGenetica}
                     onChange={(e) => setLineaGenetica(e.target.value)}
-                    className="mt-1.5 bg-slate-50 border border-slate-200 rounded-xl py-2.5 px-3 text-sm focus:ring-1 focus:ring-[#2ea66d] focus:border-[#2ea66d] font-semibold text-slate-800"
+                    className="mt-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200/50 dark:border-zinc-800 rounded-xl py-2.5 px-3 text-sm focus:ring-1 focus:ring-[#2ea66d] focus:border-[#2ea66d] font-semibold text-slate-800 dark:text-slate-200"
                   >
                     <option value="">Seleccionar</option>
                     <option value="Hy-Line Brown">Hy-Line Brown</option>
@@ -942,4 +934,4 @@ const Page = () => {
   );
 };
 
-export default Page;
+export default DashboardProduccion;
