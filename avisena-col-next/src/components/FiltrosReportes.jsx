@@ -1,9 +1,10 @@
-'use client';
+"use client";
 
 export default function FiltrosReportes({
   filtros,
   setFiltros,
   generarReporte,
+  cambiarTipoReporte,
 }) {
   const handleChange = (e) => {
     setFiltros({
@@ -30,7 +31,7 @@ export default function FiltrosReportes({
           <select
             name="tipoReporte"
             value={filtros.tipoReporte}
-            onChange={handleChange}
+            onChange={cambiarTipoReporte}
             className="w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-[#49E619]/40 focus:border-[#49E619] transition-all"
           >
             <option value="">Selecciona una opción...</option>
@@ -53,8 +54,8 @@ export default function FiltrosReportes({
             className="w-full px-4 py-2.5 border border-slate-200 rounded-xl bg-slate-50 text-slate-700 outline-none focus:ring-2 focus:ring-[#49E619]/40 focus:border-[#49E619] transition-all"
           >
             <option value="">Todos los galpones</option>
-            <option value="Galpón 1">Galpón 1</option>
-            <option value="Galpón 2">Galpón 2</option>
+            <option value="01">Galpón 01</option>
+            <option value="02">Galpón 02</option>
           </select>
         </section>
         <section className="flex flex-col gap-2">

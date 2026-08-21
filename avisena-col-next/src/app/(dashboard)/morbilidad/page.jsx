@@ -32,17 +32,18 @@ export default function MorbilidadView() {
   };
 
   const guardarRegistro = (formDataSubmit) => {
-    const loteFull = `Galpón ${formDataSubmit.galpon} - Lote ${formDataSubmit.lote}`;
+    const loteFull = `Galpón ${formDataSubmit.galpon}`; // Se eliminó el lote puesto que ya no existe
 
     const nuevoRegistro = {
       id: Date.now(),
       responsable: formDataSubmit.responsable,
       fecha: formDataSubmit.fecha,
+      galpon: formDataSubmit.galpon, // Se agregó galpón para que desde reportes se pueda diferenciar el galpón del cual se quiere generar un reporte
       lote: loteFull,
-      sintomas: formDataSubmit.sintomas.join(', '),
+      sintomas: formDataSubmit.sintomas, // Se eleiminó el join debido a que ya no es necesario porque ya no es un select sino un textarea en sintomas
       afectacion: formDataSubmit.afectacion,
       accion: formDataSubmit.accion,
-      cantidad: formDataSubmit.cantidad,
+      cantidad: Number(formDataSubmit.cantidad), // Se agrega el Number para que en reportes se pueda hacer un conteo total de las aves enfermas
       observaciones: formDataSubmit.observaciones
     };
 

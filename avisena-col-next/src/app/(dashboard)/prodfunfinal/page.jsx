@@ -1,8 +1,8 @@
-'use client';
+"use client";
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import ModalHistorial from '@/components/ModalHistorial';
+import ModalHistorial from "@/components/ModalHistorial";
 
 const Page = () => {
   const obtenerFechaFormateada = () => {
@@ -33,7 +33,7 @@ const Page = () => {
   const [fechaRecoleccion, setFechaRecoleccion] = useState("2026-05-28");
   const [edadSemanasRecoleccion, setEdadSemanasRecoleccion] = useState("22");
   const [nombreTrabajador, setNombreTrabajador] = useState("John Doe");
-  const [galponOrigen, setGalponOrigen] = useState("Galpón A - Ponedoras");
+  const [galponOrigen, setGalponOrigen] = useState("01"); // Se modifica el estado de Galpón Ponedoras - A a 01
   const [huevosBuenos, setHuevosBuenos] = useState("1220");
   const [huevosRotosInput, setHuevosRotosInput] = useState("20");
   const [descarte, setDescarte] = useState("0");
@@ -42,7 +42,8 @@ const Page = () => {
   const [lineaGenetica, setLineaGenetica] = useState("");
 
   const [produccionesPendientes, setProduccionesPendientes] = useState([]);
-  const [produccionesPendientesCargadas, setProduccionesPendientesCargadas] = useState(false);
+  const [produccionesPendientesCargadas, setProduccionesPendientesCargadas] =
+    useState(false);
   useEffect(() => {
     const saved = localStorage.getItem("produccionesPendientes");
     setProduccionesPendientes(saved ? JSON.parse(saved) : []);
@@ -162,7 +163,7 @@ const Page = () => {
     setFechaRecoleccion("2026-05-28");
     setEdadSemanasRecoleccion("22");
     setNombreTrabajador("");
-    setGalponOrigen("Galpón A - Ponedoras");
+    setGalponOrigen("01");  // Se modifica el estado de Galpón Ponedoras - A a 01
     setHuevosBuenos("0");
     setHuevosRotosInput("0");
     setDescarte("0");
@@ -199,7 +200,10 @@ const Page = () => {
 
   useEffect(() => {
     if (!produccionesPendientesCargadas) return;
-    localStorage.setItem("produccionesPendientes", JSON.stringify(produccionesPendientes));
+    localStorage.setItem(
+      "produccionesPendientes",
+      JSON.stringify(produccionesPendientes),
+    );
   }, [produccionesPendientes, produccionesPendientesCargadas]);
 
   // Exportar historial a CSV
@@ -525,8 +529,6 @@ const Page = () => {
           </section>
 
           <aside className="space-y-8">
-            
-
             <article className="bg-white dark:bg-zinc-900 p-6 rounded-3xl border border-slate-100/80 dark:border-zinc-800/80 shadow-sm">
               <header className="flex items-center gap-2 mb-6">
                 <span className="material-symbols-outlined text-[#2ea66d] font-bold">
@@ -742,15 +744,10 @@ const Page = () => {
                     onChange={(e) => setGalponOrigen(e.target.value)}
                     className="mt-1.5 bg-slate-50 dark:bg-zinc-950 border border-slate-200/50 dark:border-zinc-800 rounded-xl py-2.5 px-3 text-sm focus:ring-1 focus:ring-[#2ea66d] focus:border-[#2ea66d] font-semibold text-slate-800 dark:text-slate-200"
                   >
-                    <option value="Galpón A - Ponedoras">
-                      Galpón A - Ponedoras
-                    </option>
-                    <option value="Galpón B - Ponedoras">
-                      Galpón B - Ponedoras
-                    </option>
-                    <option value="Galpón C - Ponedoras">
-                      Galpón C - Ponedoras
-                    </option>
+                    {/** Se modifica para que en lugar de Galpón Ponedoras, aparezca Galpón 01 o Galpón 02 */}
+                    <option value="">Seleccione el galpón...</option>
+                    <option value="01">Galpón 01</option>  
+                    <option value="02">Galpón 02</option>
                   </select>
                 </label>
               </div>
