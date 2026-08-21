@@ -7,7 +7,7 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
     fecha: '',
     galpon: '',
     lote: '',
-    sintomas: [],
+    sintomas: '', // Modificado debido a que ya no es un select sino un textarea para ingresar los datos
     afectacion: 'Leve',
     cantidad: '',
     accion: '',
@@ -83,11 +83,10 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
                   value={formData.galpon}
                   onChange={(e) => setFormData({ ...formData, galpon: e.target.value })}
                 >
+                  {/**Se modifica para que sólo aparezca galpón 01 y galpón 02 */}
                   <option value="">Seleccionar galpón...</option>
-                  <option value="1">1</option>
-                  <option value="2">2</option>
-                  <option value="3">3</option>
-                  <option value="4">4</option>
+                  <option value="01">01</option> 
+                  <option value="02">02</option>
                 </select>
               </section>
             </section>
@@ -151,8 +150,8 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
                     className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm resize-none p-3 border"
                     placeholder="Detalles adicionales observados..."
                     rows="4"
-                    value={formData.Sintomas}
-                    onChange={(e) => setFormData({ ...formData, Sintomas: e.target.value })}
+                    value={formData.sintomas}
+                    onChange={(e) => setFormData({ ...formData, sintomas: e.target.value })} // Se corrige sintomas, porque estaba mal escrito y no se estaba leyendo correctamente
                   ></textarea>
                 </section>
                 <section>
