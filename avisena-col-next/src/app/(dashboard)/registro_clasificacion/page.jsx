@@ -17,8 +17,20 @@ const formatCurrency = (val) => new Intl.NumberFormat('es-CO', {
   style: 'currency', currency: 'COP', minimumFractionDigits: 0
 }).format(val);
 
-const formatExactPanales = (unidades) => {
-  if (!unidades || unidades === 0) return "0 panales";
+const formatPanalesOriginal = (unidades) => {
+  if (!unidades || unidades === 0) {
+    return { principal: "0 panales", sobrante: "+0 uds para mañana" };
+  }
+  const panales = Math.floor(unidades / 30);
+  const residuo = unidades % 30;
+  return {
+    principal: `${panales} ${panales === 1 ? 'panal' : 'panales'}`,
+    sobrante: `+${residuo} uds para mañana`
+  };
+};
+
+const formatExactPanalesText = (unidades) => {
+  if (!unidades || unidades === 0) return "0 uds";
   const panales = Math.floor(unidades / 30);
   const residuo = unidades % 30;
   if (panales === 0) return `${residuo} uds`;
@@ -32,16 +44,25 @@ const getUnidades = (reg) => {
 
 const CLASIFICACIONES = ['C', 'B', 'A', 'AA', 'AAA', 'Jumbo'];
 
-const initialTableData = {
-  C: { hoy: "", ayer: 0, precio: "" },
-  B: { hoy: "", ayer: 0, precio: "" },
-  A: { hoy: "", ayer: 0, precio: "" },
-  AA: { hoy: "", ayer: 0, precio: "" },
-  AAA: { hoy: "", ayer: 0, precio: "" },
-  Jumbo: { hoy: "", ayer: 0, precio: "" }
+const PRECIOS_PANAL_BASE = {
+  C: "10.500",
+  B: "12.000",
+  A: "13.500",
+  AA: "15.000",
+  AAA: "16.500",
+  Jumbo: "18.000"
 };
 
-export default function Page() {
+const initialTableData = {
+  C: { hoy: "", anterior: 0, precio: PRECIOS_PANAL_BASE.C },
+  B: { hoy: "", anterior: 0, precio: PRECIOS_PANAL_BASE.B },
+  A: { hoy: "", anterior: 0, precio: PRECIOS_PANAL_BASE.A },
+  AA: { hoy: "", anterior: 0, precio: PRECIOS_PANAL_BASE.AA },
+  AAA: { hoy: "", anterior: 0, precio: PRECIOS_PANAL_BASE.AAA },
+  Jumbo: { hoy: "", anterior: 0, precio: PRECIOS_PANAL_BASE.Jumbo }
+};
+
+export default function ClasificacionView() {
   const [modals, setModals] = useState({
     registro: false,
     exito: false,
@@ -54,7 +75,6 @@ export default function Page() {
   const [generalInfo, setGeneralInfo] = useState({
     fecha: new Date().toISOString().split('T')[0],
     galpon: "",
-    lote: "",
     responsable: "",
     observaciones: ""
   });
@@ -67,7 +87,6 @@ export default function Page() {
   const [produccionesPendientes, setProduccionesPendientes] = useState([]);
 
   useEffect(() => {
-    // Cargar la producción seleccionada desde localStorage
     const selectedStr = localStorage.getItem("produccionSeleccionada");
     if (selectedStr) {
       try {
@@ -76,7 +95,6 @@ export default function Page() {
         setGeneralInfo({
           fecha: selected.fecha || new Date().toISOString().split('T')[0],
           galpon: selected.galpon || "",
-          lote: selected.lote || "",
           responsable: selected.trabajador || "",
           observaciones: selected.notes || selected.notas || ""
         });
@@ -88,7 +106,6 @@ export default function Page() {
   }, []);
 
   useEffect(() => {
-    // Cargar la lista de producciones pendientes para el dropdown
     const pendingSaved = localStorage.getItem("produccionesPendientes");
     if (pendingSaved) {
       try {
@@ -105,7 +122,6 @@ export default function Page() {
     setGeneralInfo({
       fecha: new Date().toISOString().split('T')[0],
       galpon: "",
-      lote: "",
       responsable: "",
       observaciones: ""
     });
@@ -123,19 +139,16 @@ export default function Page() {
   }, [historial]);
 
   useEffect(() => {
-    if (generalInfo.galpon && historial.length > 0) {
-      const registrosGalpon = historial
-        .filter(r => r.galpon.toString() === generalInfo.galpon.toString())
-        .sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-
-      if (registrosGalpon.length > 0 && registrosGalpon[0].sobrantesParaManana) {
-        const ultimosSobrantes = registrosGalpon[0].sobrantesParaManana;
+    if (historial.length > 0) {
+      const ultimoRegistro = historial[historial.length - 1];
+      const ultimosSobrantes = ultimoRegistro.sobrantesSiguiente || ultimoRegistro.sobrantesParaManana;
+      if (ultimosSobrantes) {
         setTableData(prev => {
           const actualizado = { ...prev };
           CLASIFICACIONES.forEach(tipo => {
             actualizado[tipo] = {
               ...actualizado[tipo],
-              ayer: ultimosSobrantes[tipo] || 0
+              anterior: ultimosSobrantes[tipo] || 0
             };
           });
           return actualizado;
@@ -144,13 +157,21 @@ export default function Page() {
         setTableData(prev => {
           const limpiado = { ...prev };
           CLASIFICACIONES.forEach(tipo => {
-            limpiado[tipo] = { ...limpiado[tipo], ayer: 0 };
+            limpiado[tipo] = { ...limpiado[tipo], anterior: 0 };
           });
           return limpiado;
         });
       }
+    } else {
+      setTableData(prev => {
+        const limpiado = { ...prev };
+        CLASIFICACIONES.forEach(tipo => {
+          limpiado[tipo] = { ...limpiado[tipo], anterior: 0 };
+        });
+        return limpiado;
+      });
     }
-  }, [generalInfo.galpon, historial]);
+  }, [historial]);
 
   const openModal = (name) => setModals(prev => ({ ...prev, [name]: true }));
   const closeModal = (name) => {
@@ -198,13 +219,16 @@ export default function Page() {
     const row = tableData[key];
     if (!row) return acc;
 
+    const tieneIngreso = row.hoy !== "" && !isNaN(parseInt(row.hoy));
     const hoy = parseInt(row.hoy) || 0;
+    const anterior = parseInt(row.anterior) || 0;
+    const acumulado = tieneIngreso ? hoy + anterior : 0;
     const precio = cleanNum(row.precio);
-    const panalesHoy = hoy / 30;
-    const sub = panalesHoy * precio;
+    const panalesAcumulados = Math.floor(acumulado / 30);
+    const sub = panalesAcumulados * precio;
 
     acc.unidades += hoy;
-    acc.panales += panalesHoy;
+    acc.panales += panalesAcumulados;
     acc.dinero += sub;
     return acc;
   }, { unidades: 0, panales: 0, dinero: 0 });
@@ -212,9 +236,10 @@ export default function Page() {
   const sobrantesPorTipo = CLASIFICACIONES.reduce((acc, tipo) => {
     const row = tableData[tipo];
     if (row) {
+      const tieneIngreso = row.hoy !== "" && !isNaN(parseInt(row.hoy));
       const hoy = parseInt(row.hoy) || 0;
-      const ayer = parseInt(row.ayer) || 0;
-      const totalAcumulado = hoy + ayer;
+      const anterior = parseInt(row.anterior) || 0;
+      const totalAcumulado = tieneIngreso ? hoy + anterior : 0;
       acc[tipo] = totalAcumulado % 30;
     } else {
       acc[tipo] = 0;
@@ -272,7 +297,7 @@ export default function Page() {
     CLASIFICACIONES.forEach(tipo => {
       detallesNormalizados[tipo] = {
         hoy: parseInt(tableData[tipo].hoy) || 0,
-        ayer: parseInt(tableData[tipo].ayer) || 0,
+        anterior: parseInt(tableData[tipo].anterior) || 0,
         precio: tableData[tipo].precio || ""
       };
     });
@@ -288,7 +313,7 @@ export default function Page() {
       panales: totales.panales,
       obs: generalInfo.observaciones || "Sin observaciones",
       detalles: detallesNormalizados,
-      sobrantesParaManana: { ...sobrantesPorTipo },
+      sobrantesSiguiente: { ...sobrantesPorTipo },
       totalSobrantes: totalSobrantesUnidades
     };
 
@@ -296,7 +321,6 @@ export default function Page() {
     setHistorial(nuevoHistorial);
     localStorage.setItem('avisena_storage', JSON.stringify(nuevoHistorial));
 
-    // Si había una recolección vinculada, eliminarla de pendientes
     if (produccionOrigen) {
       const pendingSaved = localStorage.getItem("produccionesPendientes");
       if (pendingSaved) {
@@ -354,10 +378,10 @@ export default function Page() {
       alert('No hay datos para exportar.');
       return;
     }
-    const encabezados = ["ID", "Fecha", "Galpon", "Lote", "Responsable", "Unidades", "Panales", "Total", "Sobrantes Mañana", "Observaciones"];
+    const encabezados = ["ID", "Fecha", "Galpon", "Responsable", "Unidades", "Panales", "Total", "Sobrantes Siguiente", "Observaciones"];
     const filas = historial.map(reg => [
-      reg.id, reg.fecha, reg.galpon, reg.lote || "N/A", reg.responsable,
-      getUnidades(reg), formatExactPanales(getUnidades(reg)),
+      reg.id, reg.fecha, reg.galpon, reg.responsable,
+      getUnidades(reg), formatExactPanalesText(getUnidades(reg)),
       reg.total.replace(/[$. ]/g, ''), reg.totalSobrantes || 0, reg.obs.replace(/,/g, " ")
     ].join(","));
 
@@ -376,8 +400,6 @@ export default function Page() {
 
   return (
     <span className="min-h-screen bg-slate-50 text-gray-800 antialiased font-sans block">
-    
-
       <main className="max-w-6xl mx-auto mt-12 px-6 pb-16 space-y-12">
         <section className="flex flex-col md:flex-row md:justify-between md:items-center bg-white rounded-2xl p-8 shadow-sm border border-gray-100 gap-6">
           <header>
@@ -420,9 +442,9 @@ export default function Page() {
               <thead className="bg-slate-50 border-b border-gray-200">
                 <tr className="text-gray-400">
                   <th className="p-4 font-bold text-xs uppercase tracking-wider">ID / Fecha</th>
-                  <th className="p-4 font-bold text-xs uppercase tracking-wider">Galpón / Lote</th>
+                  <th className="p-4 font-bold text-xs uppercase tracking-wider">Galpón</th>
                   <th className="p-4 font-bold text-xs uppercase tracking-wider">Producción Hoy</th>
-                  <th className="p-4 font-bold text-xs uppercase tracking-wider">Sobrantes Mañana</th>
+                  <th className="p-4 font-bold text-xs uppercase tracking-wider">Sobrantes Siguiente</th>
                   <th className="p-4 font-bold text-xs uppercase tracking-wider">Total Dinero</th>
                   <th className="p-4 font-bold text-xs uppercase tracking-wider">Responsable</th>
                   <th className="p-4 text-center font-bold text-xs uppercase tracking-wider">Acciones</th>
@@ -446,22 +468,19 @@ export default function Page() {
                       <span className="text-xs text-gray-400 block mt-0.5">{reg.fecha}</span>
                     </td>
                     <td className="p-4">
-                      <span className="flex flex-col gap-1">
-                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 w-max">
-                          Galpón {reg.galpon}
-                        </span>
-                        <span className="text-xs text-gray-500 font-medium pl-1">Lote: {reg.lote || "N/A"}</span>
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 w-max">
+                        Galpón {reg.galpon}
                       </span>
                     </td>
                     <td className="p-4">
                       <span className="flex flex-col">
                         <span className="font-extrabold text-slate-950">
                           {getUnidades(reg)} <span className="text-[10px] text-gray-400 font-semibold">UDS</span>
-                          <span className="text-xs font-normal text-gray-500 block normal-case">
+                          <span className="text-xs font-normal text-gray-500 block normal-case" translate="no">
                             ({obtenerTextoDesglose(reg.detalles || {})})
                           </span>
                         </span>
-                        <span className="text-xs font-semibold text-green-600 mt-0.5">{formatExactPanales(getUnidades(reg))}</span>
+                        <span className="text-xs font-semibold text-green-600 mt-0.5">{formatExactPanalesText(getUnidades(reg))}</span>
                       </span>
                     </td>
                     <td className="p-4">
@@ -469,14 +488,14 @@ export default function Page() {
                         <span className="font-bold text-amber-700">
                           {reg.totalSobrantes || 0} <span className="text-[10px] text-amber-500 font-semibold">UDS</span>
                         </span>
-                        <span className="text-xs font-normal text-gray-400 block normal-case">
-                          ({obtenerTextoSobrantes(reg.sobrantesParaManana)})
+                        <span className="text-xs font-normal text-gray-400 block normal-case" translate="no">
+                          ({obtenerTextoSobrantes(reg.sobrantesSiguiente || reg.sobrantesParaMañana)})
                         </span>
                       </span>
                     </td>
                     <td className="p-4 font-extrabold text-green-600 text-base">{reg.total}</td>
-                    <td className="p-4">
-                      <span className="flex items-center gap-2">
+                    <td className="p-4 text-center">
+                      <span className="flex items-center justify-center gap-2">
                         <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold uppercase border border-slate-200">
                           {reg.responsable ? reg.responsable.charAt(0) : 'U'}
                         </span>
@@ -532,7 +551,6 @@ export default function Page() {
               <form onSubmit={step === 2 ? handleSave : (e) => e.preventDefault()} className="p-6 overflow-y-auto flex-1 space-y-5">
                 {step === 1 && (
                   <section className="space-y-5">
-                    {/* Vinculación de recolección */}
                     {produccionOrigen ? (
                       <div className="bg-green-50/85 border border-green-200 text-green-900 p-4 rounded-2xl flex flex-col gap-1.5 shadow-sm">
                         <div className="flex justify-between items-center">
@@ -547,10 +565,9 @@ export default function Page() {
                             Desvincular
                           </button>
                         </div>
-                        <div className="text-xs text-slate-650 grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1 bg-white/60 p-2.5 rounded-xl border border-green-100 font-medium">
+                        <div className="text-xs text-slate-650 grid grid-cols-2 sm:grid-cols-3 gap-2 mt-1 bg-white/60 p-2.5 rounded-xl border border-green-100 font-medium">
                           <span><strong>Fecha:</strong> {produccionOrigen.fecha}</span>
                           <span><strong>Galpón:</strong> {produccionOrigen.galpon}</span>
-                          <span><strong>Lote:</strong> {produccionOrigen.lote || 'N/A'}</span>
                           <span><strong>Huevos Buenos:</strong> <strong className="text-green-700 font-extrabold">{produccionOrigen.huevosBuenos}</strong></span>
                         </div>
                       </div>
@@ -570,7 +587,6 @@ export default function Page() {
                                   setGeneralInfo({
                                     fecha: found.fecha,
                                     galpon: found.galpon,
-                                    lote: found.lote || "",
                                     responsable: found.trabajador || "",
                                     observaciones: found.notas || ""
                                   });
@@ -596,25 +612,28 @@ export default function Page() {
                           <tr className="bg-slate-50 text-xs font-bold text-gray-455 uppercase border-b border-gray-200">
                             <th className="px-4 py-3 text-left">Tipo</th>
                             <th className="px-4 py-3 text-center">Hoy (Uds)</th>
-                            <th className="px-4 py-3 text-center">Panales (Conv.)</th>
-                            <th className="px-4 py-3 text-center">Ayer (Uds)</th>
-                            <th className="px-4 py-3 text-center">Acum. (Uds)</th>
+                            <th className="px-4 py-3 text-center">Panales (Conversion)</th>
+                            <th className="px-4 py-3 text-center">Anterior </th>
+                            <th className="px-4 py-3 text-center">Acumulado + Anterior</th>
                             <th className="px-4 py-3 text-center">Precio (Panal)</th>
                             <th className="px-4 py-3 text-right">Subtotal</th>
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 text-sm">
                           {CLASIFICACIONES.map(tipo => {
-                            const row = tableData[tipo] || { hoy: "", ayer: 0, precio: "" };
+                            const row = tableData[tipo] || { hoy: "", anterior: 0, precio: PRECIOS_PANAL_BASE[tipo] };
+                            const tieneIngreso = row.hoy !== "" && !isNaN(parseInt(row.hoy));
                             const hoy = parseInt(row.hoy) || 0;
-                            const ayer = parseInt(row.ayer) || 0;
-                            const panalesHoy = hoy / 30;
-                            const acum = hoy + ayer;
-                            const sub = panalesHoy * cleanNum(row.precio);
+                            const anterior = parseInt(row.anterior) || 0;
+                            const acum = tieneIngreso ? hoy + anterior : 0;
+                            const panalesAcumulados = Math.floor(acum / 30);
+                            const sub = panalesAcumulados * cleanNum(row.precio);
 
                             return (
                               <tr key={tipo} className="hover:bg-slate-50/50 transition-colors">
-                                <td className="px-4 py-3 text-left font-bold text-gray-800">{tipo}</td>
+                                <td className="px-4 py-3 text-left font-bold text-gray-800">
+                                  <span translate="no" className="notranslate">{tipo}</span>
+                                </td>
                                 <td className="px-4 py-3 text-center">
                                   <input
                                     type="number"
@@ -625,30 +644,41 @@ export default function Page() {
                                     onChange={(e) => handleTableChange(tipo, 'hoy', e.target.value)}
                                   />
                                 </td>
-                                <td className="px-4 py-3 text-center">
-                                  {hoy > 0 ? (
-                                    <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-bold bg-green-50 text-green-700 border border-green-100">
-                                      {formatExactPanales(hoy)}
-                                    </span>
-                                  ) : (
-                                    <span className="inline-flex items-center justify-center px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-50 text-slate-400 border border-slate-100">
-                                      0 panales
-                                    </span>
-                                  )}
+                                <td className="px-4 py-3 text-center min-w-[130px]">
+                                  <div className="flex flex-col items-center justify-center">
+                                    {(() => {
+                                      const infoPanal = formatPanalesOriginal(acum);
+                                      return (
+                                        <>
+                                          <span className="bg-emerald-50 border border-emerald-200 text-emerald-700 text-xs font-extrabold px-3 py-1 rounded-full inline-flex items-center justify-center">
+                                            {infoPanal.principal}
+                                          </span>
+                                          <span className="bg-emerald-100/60 text-emerald-700 text-[10px] font-bold px-2 py-0.5 rounded-md inline-block mt-0.5 border border-emerald-100">
+                                            {infoPanal.sobrante}
+                                          </span>
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
                                 </td>
                                 <td className="px-4 py-3 text-center">
-                                  <input type="number" className="w-16 p-1.5 bg-slate-50 border border-transparent rounded-lg text-center text-slate-500 font-semibold" value={ayer} readOnly />
-                                </td>
-                                <td className="px-4 py-3 text-center">
-                                  <input type="number" className="w-16 p-1.5 bg-slate-50 border border-transparent rounded-lg text-center text-slate-500 font-semibold" value={acum} readOnly />
+                                  <input type="number" className="w-16 p-1.5 bg-slate-50 border border-transparent rounded-lg text-center text-slate-500 font-semibold" value={anterior} readOnly />
                                 </td>
                                 <td className="px-4 py-3 text-center">
                                   <input
                                     type="text"
-                                    className="w-24 p-1.5 border border-gray-300 rounded-lg text-center font-semibold focus:ring-2 focus:ring-green-500 focus:border-green-500 focus:outline-none transition-all duration-150"
-                                    value={row.precio}
-                                    onChange={(e) => handleTableChange(tipo, 'precio', e.target.value)}
-                                    placeholder="$ 0"
+                                    className="w-16 p-1.5 bg-slate-50 border border-transparent rounded-lg text-center text-slate-500 font-semibold"
+                                    value={tieneIngreso ? acum : ""}
+                                    placeholder="0"
+                                    readOnly
+                                  />
+                                </td>
+                                <td className="px-4 py-3 text-center">
+                                  <input
+                                    type="text"
+                                    className="w-24 p-1.5 bg-slate-100 border border-slate-200 rounded-lg text-center font-bold text-slate-600 cursor-not-allowed select-none"
+                                    value={`$ ${row.precio}`}
+                                    readOnly
                                   />
                                 </td>
                                 <td className="px-4 py-3 text-right font-extrabold text-slate-900">{formatCurrency(sub)}</td>
@@ -663,11 +693,11 @@ export default function Page() {
                       <span className="text-center border-r border-gray-200 block">
                         <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Unidades Totales</span>
                         <strong className="text-base font-black text-slate-800 mt-1 block">{totales.unidades} uds</strong>
-                        <span className="text-[11px] text-gray-500 font-medium">({obtenerTextoDesglose(tableData)})</span>
+                        <span className="text-[11px] text-gray-500 font-medium" translate="no">({obtenerTextoDesglose(tableData)})</span>
                       </span>
                       <span className="text-center border-r border-gray-200 px-1 block">
                         <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Panales Totales</span>
-                        <strong className="text-xs font-bold text-green-700 mt-1.5 block leading-tight">{formatExactPanales(totales.unidades)}</strong>
+                        <strong className="text-xs font-bold text-green-700 mt-1.5 block leading-tight">{formatExactPanalesText(totales.unidades)}</strong>
                       </span>
                       <span className="text-center block">
                         <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Valor Total</span>
@@ -676,11 +706,10 @@ export default function Page() {
                     </section>
 
                     {produccionOrigen && (
-                      <div className={`p-4 rounded-2xl border text-center flex flex-col items-center justify-center gap-1 shadow-sm transition-all duration-300 ${
-                        totales.unidades === Number(produccionOrigen.huevosBuenos)
-                          ? 'bg-green-50 border-green-200 text-green-800'
-                          : 'bg-red-50/80 border-red-200 text-red-800 animate-pulse'
-                      }`}>
+                      <div className={`p-4 rounded-2xl border text-center flex flex-col items-center justify-center gap-1 shadow-sm transition-all duration-300 ${totales.unidades === Number(produccionOrigen.huevosBuenos)
+                        ? 'bg-green-50 border-green-200 text-green-800'
+                        : 'bg-red-50/80 border-red-200 text-red-800 animate-pulse'
+                        }`}>
                         <span className="text-[10px] font-bold uppercase tracking-wider">Validación de Cantidad</span>
                         <strong className="text-lg font-black">
                           {totales.unidades} / {produccionOrigen.huevosBuenos} Huevos Clasificados
@@ -690,8 +719,8 @@ export default function Page() {
                             <span className="text-green-700">✓ La cantidad coincide perfectamente. ¡Listo para continuar!</span>
                           ) : (
                             <span>
-                              {totales.unidades < Number(produccionOrigen.huevosBuenos) 
-                                ? `⚠ Faltan clasificar ${Number(produccionOrigen.huevosBuenos) - totales.unidades} huevos.` 
+                              {totales.unidades < Number(produccionOrigen.huevosBuenos)
+                                ? `⚠ Faltan clasificar ${Number(produccionOrigen.huevosBuenos) - totales.unidades} huevos.`
                                 : `⚠ Sobran ${totales.unidades - Number(produccionOrigen.huevosBuenos)} huevos clasificados.`
                               }
                             </span>
@@ -717,29 +746,52 @@ export default function Page() {
                         <span className="text-xs font-bold text-gray-600 uppercase">Fecha</span>
                         <input type="date" value={generalInfo.fecha} onChange={e => setGeneralInfo({ ...generalInfo, fecha: e.target.value })} required className="p-2.5 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none" />
                       </label>
+
                       <label className="flex flex-col gap-1">
-                        <span className="text-xs font-bold text-gray-600 uppercase">Galpón</span>
-                        <input type="text" value={generalInfo.galpon} onChange={e => setGeneralInfo({ ...generalInfo, galpon: e.target.value })} placeholder="Ej: Galpón 1" required className="p-2.5 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none" />
+                        <span className="text-xs font-bold text-gray-600 uppercase">
+                          Galpón {produccionOrigen && <span className="text-green-600 font-normal text-[10px]">(Vinculado)</span>}
+                        </span>
+                        <input
+                          type="text"
+                          value={generalInfo.galpon}
+                          onChange={e => setGeneralInfo({ ...generalInfo, galpon: e.target.value })}
+                          placeholder="Ej: Galpón 1"
+                          required
+                          readOnly={Boolean(produccionOrigen)}
+                          className={`p-2.5 border rounded-xl outline-none transition-colors ${produccionOrigen
+                            ? "bg-gray-100 text-gray-600 font-semibold cursor-not-allowed border-gray-200"
+                            : "focus:ring-2 focus:ring-green-500"
+                            }`}
+                        />
                       </label>
                       <label className="flex flex-col gap-1">
-                        <span className="text-xs font-bold text-gray-600 uppercase">Lote</span>
-                        <input type="text" value={generalInfo.lote} onChange={e => setGeneralInfo({ ...generalInfo, lote: e.target.value })} placeholder="Ej: LOTE-A2" required className="p-2.5 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none" />
-                      </label>
-                      <label className="flex flex-col gap-1 col-span-2">
-                        <span className="text-xs font-bold text-gray-600 uppercase">Responsable</span>
-                        <input type="text" value={generalInfo.responsable} onChange={e => setGeneralInfo({ ...generalInfo, responsable: e.target.value })} placeholder="Nombre Completo" required className="p-2.5 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none" />
+                        <span className="text-xs font-bold text-gray-600 uppercase">
+                          Responsable {produccionOrigen && <span className="text-green-600 font-normal text-[10px]">(Vinculado)</span>}
+                        </span>
+                        <input
+                          type="text"
+                          value={generalInfo.responsable}
+                          onChange={e => setGeneralInfo({ ...generalInfo, responsable: e.target.value })}
+                          placeholder="Nombre Completo"
+                          required
+                          readOnly={Boolean(produccionOrigen)}
+                          className={`p-2.5 border rounded-xl outline-none transition-colors ${produccionOrigen
+                            ? "bg-gray-100 text-gray-600 font-semibold cursor-not-allowed border-gray-200"
+                            : "focus:ring-2 focus:ring-green-500"
+                            }`}
+                        />
                       </label>
 
                       <span className="col-span-2 bg-slate-50 border border-gray-200 rounded-2xl p-4 space-y-2 block text-xs">
                         <span className="block text-gray-600">
                           <strong className="font-bold text-slate-800 uppercase block mb-0.5">Producción Actual:</strong>
-                          Se ingresaron <strong className="text-slate-900">{totales.unidades} uds</strong> ({obtenerTextoDesglose(tableData)}).
+                          Se ingresaron <strong className="text-slate-900">{totales.unidades} uds</strong> <span translate="no">({obtenerTextoDesglose(tableData)})</span>.
                         </span>
                         <hr className="border-gray-200" />
                         <span className="block bg-amber-50/60 border border-amber-100 p-2.5 rounded-xl text-amber-900">
                           <strong className="font-bold uppercase block mb-1">📦 Inventario de Unidades Sobrantes:</strong>
-                          Quedan <strong className="font-black text-amber-800">{totalSobrantesUnidades} unidades sueltas</strong> que no completaron panal de 30 y **se acumularán automáticamente para el día de mañana**.
-                          <span className="block font-medium text-amber-700/90 mt-0.5">Desglose: ({obtenerTextoSobrantes(sobrantesPorTipo)})</span>
+                          Quedan <strong className="font-black text-amber-800">{totalSobrantesUnidades} unidades sueltas</strong> que no completaron panal de 30 y se acumularán automáticamente para el siguiente registro**.
+                          <span className="block font-medium text-amber-700/90 mt-0.5" translate="no">Desglose: ({obtenerTextoSobrantes(sobrantesPorTipo)})</span>
                         </span>
                       </span>
 
@@ -804,7 +856,6 @@ export default function Page() {
                       <span className="text-gray-500 font-medium block">ID: <span className="font-bold text-gray-900 block text-base">{r.id}</span></span>
                       <span className="text-gray-500 font-medium block">FECHA: <span className="font-bold text-gray-900 block text-base">{r.fecha}</span></span>
                       <span className="text-gray-500 font-medium block">GALPÓN: <span className="font-bold text-gray-800 block">{r.galpon}</span></span>
-                      <span className="text-gray-500 font-medium block">LOTE: <span className="font-bold text-gray-800 block">{r.lote || "N/A"}</span></span>
                       <span className="text-gray-500 font-medium col-span-2 block">RESPONSABLE: <span className="font-bold text-gray-800 block">{r.responsable || "N/A"}</span></span>
                     </span>
 
@@ -816,9 +867,9 @@ export default function Page() {
                           const hoy = det?.hoy || 0;
                           return (
                             <span key={tipo} className="bg-white border border-gray-200/60 rounded-xl p-2 shadow-sm flex flex-col justify-between block">
-                              <span className="block text-xs font-black text-slate-400 uppercase">{tipo}</span>
-                              <span className="block text-base font-extrabold text-slate-800 mt-1">{hoy} <span className="text-[10px] text-gray-400 font-normal">uds</span></span>
-                              <span className="block text-xs font-bold text-green-600 mt-1">{formatExactPanales(hoy)}</span>
+                              <span className="block text-xs font-black text-slate-400 uppercase" translate="no">{tipo}</span>
+                              <span className="block text-base font-extrabold text-slate-800 mt-1">{hoy} <span className="text-[10px] text-gray-400 font-normal"></span></span>
+                              <span className="block text-xs font-bold text-green-600 mt-1">{formatExactPanalesText(hoy)}</span>
                             </span>
                           );
                         })}
@@ -829,13 +880,13 @@ export default function Page() {
                       <span className="block">
                         <span className="block text-xs font-bold text-green-800 uppercase tracking-wide">Unidades Totales</span>
                         <span className="text-xl font-black text-green-900">{getUnidades(r)} <span className="text-xs font-normal text-green-700">uds</span></span>
-                        <span className="block text-[11px] font-medium text-gray-600 mt-0.5 leading-tight">
+                        <span className="block text-[11px] font-medium text-gray-600 mt-0.5 leading-tight" translate="no">
                           ({obtenerTextoDesglose(r.detalles || {})})
                         </span>
                       </span>
                       <span className="block">
                         <span className="block text-xs font-bold text-green-800 uppercase tracking-wide">Panales Totales</span>
-                        <span className="text-xl font-black text-green-900">{formatExactPanales(getUnidades(r))}</span>
+                        <span className="text-xl font-black text-green-900">{formatExactPanalesText(getUnidades(r))}</span>
                       </span>
                       <span className="text-right block">
                         <span className="block text-xs font-bold text-green-800 uppercase tracking-wide">Valor Total</span>
@@ -845,7 +896,7 @@ export default function Page() {
 
                     <blockquote className="bg-amber-50/60 border-l-4 border-amber-500 p-3 rounded-r-xl text-xs text-amber-950">
                       <strong className="block text-amber-900 font-bold mb-1 uppercase tracking-wider">Sobrantes Transferidos al Día Siguiente:</strong>
-                      Se guardaron {r.totalSobrantes || 0} unidades totales: ({obtenerTextoSobrantes(r.sobrantesParaManana)}).
+                      Se guardaron {r.totalSobrantes || 0} unidades totales: <span translate="no">({obtenerTextoSobrantes(r.sobrantesSiguiente || r.sobrantesParaManana)})</span>.
                     </blockquote>
 
                     <blockquote className="bg-gray-50 border-l-4 border-slate-400 p-3 rounded-r-xl text-xs italic text-gray-600">
@@ -861,4 +912,4 @@ export default function Page() {
       </main>
     </span>
   );
-};
+} 
