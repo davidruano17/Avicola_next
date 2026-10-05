@@ -3,6 +3,13 @@
 import React, { useState, useEffect } from "react";
 import ModalHistorial from "@/components/ModalHistorial";
 
+const normalizarGalpon = (galpon) => String(galpon || "")
+  .normalize("NFD")
+  .replace(/[\u0300-\u036f]/g, "")
+  .replace(/^galpon\s*/i, "")
+  .trim()
+  .toLowerCase();
+
 const DashboardProduccion = () => {
 
   /* ─── FECHA Y MES ─── */
@@ -35,6 +42,7 @@ const DashboardProduccion = () => {
   const [nombrePerfil, setNombrePerfil] = useState("");
   const [nombreTrabajador, setNombreTrabajador] = useState("");
   const [galponOrigen, setGalponOrigen] = useState("Galpón 1");
+  const [registrosGalpones, setRegistrosGalpones] = useState([]);
   const [huevosBuenos, setHuevosBuenos] = useState("");
   const [huevosRotosInput, setHuevosRotosInput] = useState("");
   const [descarte, setDescarte] = useState("");
@@ -62,6 +70,26 @@ const DashboardProduccion = () => {
   const [huevosMes, setHuevosMes] = useState({
     mes: mesActual, buenos: 0, rotos: 0, descarte: 0,
   });
+
+  useEffect(() => {
+    const cargarRegistrosGalpones = () => {
+      try {
+        const registrosGuardados = localStorage.getItem("historialgalpones");
+        const registros = registrosGuardados ? JSON.parse(registrosGuardados) : [];
+        if (!Array.isArray(registros)) {
+          throw new Error("El historial de galpones no tiene un formato válido.");
+        }
+        setRegistrosGalpones(registros);
+      } catch (error) {
+        console.error("No se pudieron cargar las líneas genéticas de los galpones.", error);
+        setRegistrosGalpones([]);
+      }
+    };
+
+    cargarRegistrosGalpones();
+    window.addEventListener("storage", cargarRegistrosGalpones);
+    return () => window.removeEventListener("storage", cargarRegistrosGalpones);
+  }, []);
 
   useEffect(() => {
     const cargarNombrePerfil = () => {
@@ -99,6 +127,33 @@ const DashboardProduccion = () => {
       setNombreTrabajador(nombrePerfil);
     }
   }, [isModalRecoleccionOpen, produccionEnEdicion, nombrePerfil]);
+
+  const obtenerLineasGeneticas = (galpon) => {
+    const lineas = new Map();
+    registrosGalpones.forEach(registro => {
+      if (!registro || typeof registro !== "object") return;
+      const linea = typeof registro.linea === "string" ? registro.linea.trim() : "";
+      if (
+        normalizarGalpon(registro.galpon || registro.lote) === normalizarGalpon(galpon)
+        && linea
+      ) {
+        lineas.set(linea.toLocaleLowerCase(), linea);
+      }
+    });
+    return Array.from(lineas.values());
+  };
+  const lineasGeneticasDisponibles = obtenerLineasGeneticas(galponOrigen);
+
+  useEffect(() => {
+    if (!isModalRecoleccionOpen) return;
+
+    const lineaAnteriorDelGalpon = produccionEnEdicion
+      && normalizarGalpon(produccionEnEdicion.galpon) === normalizarGalpon(galponOrigen)
+      && lineaGenetica === produccionEnEdicion.lineaGenetica;
+    if (lineaAnteriorDelGalpon || lineasGeneticasDisponibles.includes(lineaGenetica)) return;
+
+    setLineaGenetica(lineasGeneticasDisponibles.length === 1 ? lineasGeneticasDisponibles[0] : "");
+  }, [isModalRecoleccionOpen, galponOrigen, registrosGalpones, produccionEnEdicion, lineaGenetica]);
 
   /* ════════════════════════════════════════════
      CARGA INICIAL
@@ -1111,7 +1166,11 @@ const DashboardProduccion = () => {
                 <label className="flex flex-col text-xs font-bold text-slate-500 uppercase">
                   Galpón / Origen *
                   <select value={galponOrigen}
-                    onChange={e => setGalponOrigen(e.target.value)}
+                    onChange={e => {
+                      setGalponOrigen(e.target.value);
+                      const lineas = obtenerLineasGeneticas(e.target.value);
+                      setLineaGenetica(lineas.length === 1 ? lineas[0] : "");
+                    }}
                     required className={inputCls}>
                     <option value="Galpón 1">Galpón 1</option>
                     <option value="Galpón 2">Galpón 2</option>
@@ -1144,12 +1203,17 @@ const DashboardProduccion = () => {
                   <select value={lineaGenetica}
                     onChange={e => setLineaGenetica(e.target.value)}
                     required className={inputCls}>
-                    <option value="">Seleccionar</option>
-                    <option value="Hy-Line Brown">Hy-Line Brown</option>
-                    <option value="Hy-Line W36">Hy-Line W36</option>
-                    <option value="Lohmann Brown">Lohmann Brown</option>
-                    <option value="ISA Brown">ISA Brown</option>
-                    <option value="Dekalb White">Dekalb White</option>
+                    <option value="">
+                      {lineasGeneticasDisponibles.length
+                        ? "Seleccionar línea"
+                        : "No hay líneas registradas para este galpón"}
+                    </option>
+                    {lineaGenetica && !lineasGeneticasDisponibles.includes(lineaGenetica) && (
+                      <option value={lineaGenetica}>{lineaGenetica} (registro anterior)</option>
+                    )}
+                    {lineasGeneticasDisponibles.map(linea => (
+                      <option key={linea} value={linea}>{linea}</option>
+                    ))}
                   </select>
                 </label>
                 <label className="flex flex-col text-xs font-bold text-slate-500 uppercase">
