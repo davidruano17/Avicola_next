@@ -32,6 +32,7 @@ const DashboardProduccion = () => {
   /* ─── FORMULARIO RECOLECCIÓN ─── */
   const [fechaRecoleccion, setFechaRecoleccion] = useState(hoy);
   const [edadSemanasRecoleccion, setEdadSemanasRecoleccion] = useState("");
+  const [nombrePerfil, setNombrePerfil] = useState("");
   const [nombreTrabajador, setNombreTrabajador] = useState("");
   const [galponOrigen, setGalponOrigen] = useState("Galpón 1");
   const [huevosBuenos, setHuevosBuenos] = useState("");
@@ -61,6 +62,43 @@ const DashboardProduccion = () => {
   const [huevosMes, setHuevosMes] = useState({
     mes: mesActual, buenos: 0, rotos: 0, descarte: 0,
   });
+
+  useEffect(() => {
+    const cargarNombrePerfil = () => {
+      const userId = localStorage.getItem("user_id") || "admin";
+      const nombresPorUsuario = {
+        admin: "Instructor Líder (Admin)",
+        aprendiz: "Aprendiz Sena",
+        investigador: "Instructor Investigador",
+      };
+      const nombrePorDefecto = nombresPorUsuario[userId] || nombresPorUsuario.admin;
+      const perfilGuardado = localStorage.getItem(`user_profile_${userId}`);
+
+      if (perfilGuardado) {
+        try {
+          const perfil = JSON.parse(perfilGuardado);
+          if (typeof perfil?.name === "string" && perfil.name.trim()) {
+            setNombrePerfil(perfil.name.trim());
+            return;
+          }
+        } catch (error) {
+          console.error("No se pudo cargar el nombre del perfil.", error);
+        }
+      }
+
+      setNombrePerfil(nombrePorDefecto);
+    };
+
+    cargarNombrePerfil();
+    window.addEventListener("storage", cargarNombrePerfil);
+    return () => window.removeEventListener("storage", cargarNombrePerfil);
+  }, []);
+
+  useEffect(() => {
+    if (isModalRecoleccionOpen && !produccionEnEdicion && nombrePerfil) {
+      setNombreTrabajador(nombrePerfil);
+    }
+  }, [isModalRecoleccionOpen, produccionEnEdicion, nombrePerfil]);
 
   /* ════════════════════════════════════════════
      CARGA INICIAL
@@ -126,13 +164,10 @@ const DashboardProduccion = () => {
      VALORES COMPUTADOS — KPI DIARIOS (DESDE HISTORIAL Y PENDIENTES)
   ════════════════════════════════════════════ */
   const recoleccionesHoy = historial.filter(h => h.fecha === hoy);
-  const produccionMasReciente = recoleccionesHoy[0] ?? historial[0] ?? produccionesPendientes[0] ?? null;
   const totalHuevosHoy = recoleccionesHoy.length > 0
     ? recoleccionesHoy.reduce((sum, h) => sum + Number(h.huevosBuenos || 0) + Number(h.huevosRotos || 0) + Number(h.descarte || 0), 0)
     : produccionesPendientes.reduce((sum, p) => sum + Number(p.huevosBuenos || 0) + Number(p.huevosRotos || 0) + Number(p.descarte || 0), 0);
 
-  const edadActual = produccionMasReciente?.edadSemanas ?? produccionMasReciente?.edad?.replace(/[^\d]/g, "") ?? "—";
-  const galponActual = produccionMasReciente?.galpon ?? "Sin registros";
   const totalRecoleccionesHoy = recoleccionesHoy.length > 0 ? recoleccionesHoy.length : produccionesPendientes.length;
   const cubetas = Math.floor(totalHuevosHoy / 30);
   const sueltos = totalHuevosHoy % 30;
@@ -323,7 +358,7 @@ const DashboardProduccion = () => {
 
   const handleLimpiarFormulario = () => {
     setFechaRecoleccion(hoy); setEdadSemanasRecoleccion("");
-    setNombreTrabajador(""); setGalponOrigen("Galpón 1");
+    setNombreTrabajador(nombrePerfil); setGalponOrigen("Galpón 1");
     setHora(horaActual); setJornada("Mañana");
     setHuevosBuenos(""); setHuevosRotosInput("");
     setDescarte(""); setNotas("");
@@ -471,7 +506,7 @@ const DashboardProduccion = () => {
         </header>
 
         {/* ── TARJETAS KPI ── */}
-        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8">
+        <section className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-8 w-full">
           <article className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800/80 flex items-center justify-between">
             <section className="space-y-1">
               <p className="text-slate-400 text-sm font-medium">Total Huevos Hoy</p>
@@ -491,32 +526,10 @@ const DashboardProduccion = () => {
 
           <article className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800/80 flex items-center justify-between">
             <section className="space-y-1">
-              <p className="text-slate-400 text-sm font-medium">Edad de las Aves</p>
-              <h3 className="text-2xl font-black text-slate-800 dark:text-white leading-tight">
-                {edadActual !== "—"
-                  ? `${edadActual} Semanas`
-                  : <span className="text-slate-400 text-base font-semibold">Sin registros</span>}
-              </h3>
-            </section>
-            <span className="bg-[#2ea66d]/10 text-[#2ea66d] p-3 rounded-lg material-symbols-outlined font-bold">calendar_today</span>
-          </article>
-
-          <article className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800/80 flex items-center justify-between">
-            <section className="space-y-1">
               <p className="text-slate-400 text-sm font-medium">Total Recolecciones Hoy</p>
               <h3 className="text-3xl font-black text-[#2ea66d] leading-tight">{totalRecoleccionesHoy}</h3>
             </section>
             <span className="bg-[#2ea66d]/10 text-[#2ea66d] p-3 rounded-lg material-symbols-outlined font-bold">layers</span>
-          </article>
-
-          <article className="bg-white dark:bg-zinc-900 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-zinc-800/80 flex items-center justify-between">
-            <section className="space-y-1">
-              <p className="text-slate-400 text-sm font-medium">Galpón Monitoreado</p>
-              <h3 className="text-lg font-bold text-slate-800 dark:text-white leading-tight truncate max-w-[140px]">
-                {galponActual}
-              </h3>
-            </section>
-            <span className="bg-[#2ea66d]/10 text-[#2ea66d] p-3 rounded-lg material-symbols-outlined font-bold">location_on</span>
           </article>
         </section>
 
@@ -563,7 +576,7 @@ const DashboardProduccion = () => {
                 {/* D — Docenas del mes */}
                 <div className="bg-slate-50 dark:bg-zinc-950 p-4 rounded-2xl border border-slate-200/50 dark:border-zinc-800">
                   <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                    D — Docenas del Mes
+                    Docenas del Mes
                   </p>
                   <p className="text-2xl font-black text-slate-800 dark:text-white mt-1">
                     {docenasMes > 0 ? docenasMes.toFixed(1) : "—"}
@@ -763,7 +776,7 @@ const DashboardProduccion = () => {
                   <h4 className="font-bold text-sm text-slate-800 dark:text-white uppercase tracking-wider
                                  flex items-center gap-2">
                     <span className="material-symbols-outlined text-sm text-[#2ea66d]">inventory_2</span>
-                    Registrar K — Alimento Suministrado
+                    Registrar   Alimento Suministrado
                   </h4>
 
                   {/* Referencia teórica con la fórmula */}
@@ -913,7 +926,7 @@ const DashboardProduccion = () => {
                     <div className="flex items-start justify-between">
                       <div>
                         <p className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">
-                          D — Docenas del Mes
+                          Docenas del Mes
                         </p>
                         <p className="text-3xl font-black text-[#2ea66d] mt-1">
                           {docenasMes > 0 ? docenasMes.toFixed(1) : "0"}
@@ -955,7 +968,7 @@ const DashboardProduccion = () => {
                                 justify-between gap-3 mb-4">
                   <div>
                     <span className="text-[10px] font-bold text-[#278d5c] dark:text-emerald-400 uppercase tracking-wider">
-                      Resultado: Conversión Alimenticia (CA / FCR)
+                      Resultado: Conversión Alimenticia (CA)
                     </span>
                     {/* Fórmula con valores reales */}
                     <p className="text-xs font-mono text-slate-600 dark:text-slate-300 mt-0.5">
@@ -1102,7 +1115,6 @@ const DashboardProduccion = () => {
                     required className={inputCls}>
                     <option value="Galpón 1">Galpón 1</option>
                     <option value="Galpón 2">Galpón 2</option>
-                    <option value="Galpón 3">Galpón 3</option>
                   </select>
                 </label>
               </div>
