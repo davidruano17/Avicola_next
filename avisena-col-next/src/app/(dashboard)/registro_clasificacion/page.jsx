@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 
 const formatDots = (num) => {
   if (!num) return "";
@@ -10,12 +10,17 @@ const formatDots = (num) => {
 
 const cleanNum = (str) => {
   if (!str) return 0;
-  return parseFloat(str.toString().replace(/\./g, '').replace('$', '').trim()) || 0;
+  return (
+    parseFloat(str.toString().replace(/\./g, "").replace("$", "").trim()) || 0
+  );
 };
 
-const formatCurrency = (val) => new Intl.NumberFormat('es-CO', {
-  style: 'currency', currency: 'COP', minimumFractionDigits: 0
-}).format(val);
+const formatCurrency = (val) =>
+  new Intl.NumberFormat("es-CO", {
+    style: "currency",
+    currency: "COP",
+    minimumFractionDigits: 0,
+  }).format(val);
 
 const formatPanalesOriginal = (unidades) => {
   if (!unidades || unidades === 0) {
@@ -34,15 +39,15 @@ const formatExactPanalesText = (unidades) => {
   const panales = Math.floor(unidades / 30);
   const residuo = unidades % 30;
   if (panales === 0) return `${residuo} uds`;
-  if (residuo === 0) return `${panales} ${panales === 1 ? 'panal' : 'panales'}`;
-  return `${panales} ${panales === 1 ? 'panal' : 'panales'} y ${residuo} uds`;
+  if (residuo === 0) return `${panales} ${panales === 1 ? "panal" : "panales"}`;
+  return `${panales} ${panales === 1 ? "panal" : "panales"} y ${residuo} uds`;
 };
 
 const getUnidades = (reg) => {
-  return reg.unidades !== undefined ? reg.unidades : (reg.panales || 0);
+  return reg.unidades !== undefined ? reg.unidades : reg.panales || 0;
 };
 
-const CLASIFICACIONES = ['C', 'B', 'A', 'AA', 'AAA', 'Jumbo'];
+const CLASIFICACIONES = ["C", "B", "A", "AA", "AAA", "Jumbo"];
 
 const PRECIOS_PANAL_BASE = {
   C: "10.500",
@@ -67,16 +72,16 @@ export default function ClasificacionView() {
     registro: false,
     exito: false,
     borrado: false,
-    detalle: false
+    detalle: false,
   });
 
   const [step, setStep] = useState(1);
   const [tableData, setTableData] = useState(initialTableData);
   const [generalInfo, setGeneralInfo] = useState({
-    fecha: new Date().toISOString().split('T')[0],
+    fecha: new Date().toISOString().split("T")[0],
     galpon: "",
     responsable: "",
-    observaciones: ""
+    observaciones: "",
   });
 
   const [historial, setHistorial] = useState([]);
@@ -93,12 +98,12 @@ export default function ClasificacionView() {
         const selected = JSON.parse(selectedStr);
         setProduccionOrigen(selected);
         setGeneralInfo({
-          fecha: selected.fecha || new Date().toISOString().split('T')[0],
+          fecha: selected.fecha || new Date().toISOString().split("T")[0],
           galpon: selected.galpon || "",
           responsable: selected.trabajador || "",
-          observaciones: selected.notes || selected.notas || ""
+          observaciones: selected.notes || selected.notas || "",
         });
-        setModals(prev => ({ ...prev, registro: true }));
+        setModals((prev) => ({ ...prev, registro: true }));
       } catch (e) {
         console.error("Error al cargar produccionSeleccionada:", e);
       }
@@ -120,21 +125,21 @@ export default function ClasificacionView() {
     localStorage.removeItem("produccionSeleccionada");
     setProduccionOrigen(null);
     setGeneralInfo({
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: new Date().toISOString().split("T")[0],
       galpon: "",
       responsable: "",
-      observaciones: ""
+      observaciones: "",
     });
   };
 
   useEffect(() => {
-    const saved = localStorage.getItem('avisena_storage');
+    const saved = localStorage.getItem("avisena_storage");
     if (saved) setHistorial(JSON.parse(saved));
   }, []);
 
   useEffect(() => {
     if (historial.length > 0) {
-      localStorage.setItem('avisena_storage', JSON.stringify(historial));
+      localStorage.setItem("avisena_storage", JSON.stringify(historial));
     }
   }, [historial]);
 
@@ -145,7 +150,7 @@ export default function ClasificacionView() {
       if (ultimosSobrantes) {
         setTableData(prev => {
           const actualizado = { ...prev };
-          CLASIFICACIONES.forEach(tipo => {
+          CLASIFICACIONES.forEach((tipo) => {
             actualizado[tipo] = {
               ...actualizado[tipo],
               anterior: ultimosSobrantes[tipo] || 0
@@ -154,7 +159,7 @@ export default function ClasificacionView() {
           return actualizado;
         });
       } else {
-        setTableData(prev => {
+        setTableData((prev) => {
           const limpiado = { ...prev };
           CLASIFICACIONES.forEach(tipo => {
             limpiado[tipo] = { ...limpiado[tipo], anterior: 0 };
@@ -173,10 +178,10 @@ export default function ClasificacionView() {
     }
   }, [historial]);
 
-  const openModal = (name) => setModals(prev => ({ ...prev, [name]: true }));
+  const openModal = (name) => setModals((prev) => ({ ...prev, [name]: true }));
   const closeModal = (name) => {
-    setModals(prev => ({ ...prev, [name]: false }));
-    if (name === 'registro') {
+    setModals((prev) => ({ ...prev, [name]: false }));
+    if (name === "registro") {
       setStep(1);
       localStorage.removeItem("produccionSeleccionada");
       setProduccionOrigen(null);
@@ -186,38 +191,42 @@ export default function ClasificacionView() {
   const obtenerSiguienteId = () => {
     if (historial.length === 0) return 1;
     const ultimoId = historial[historial.length - 1].id;
-    const num = parseInt(ultimoId.split('-')[1]);
+    const num = parseInt(ultimoId.split("-")[1]);
     return isNaN(num) ? historial.length + 1 : num + 1;
   };
 
   const handleLimpiarFormulario = () => {
     setTableData(initialTableData);
     setGeneralInfo({
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: new Date().toISOString().split("T")[0],
       galpon: "",
       lote: "",
       responsable: "",
-      observaciones: ""
+      observaciones: "",
     });
-    closeModal('registro');
-    openModal('borrado');
+    closeModal("registro");
+    openModal("borrado");
   };
 
   const handleTableChange = (tipo, field, value) => {
-    setTableData(prev => ({
+    setTableData((prev) => ({
       ...prev,
       [tipo]: {
         ...prev[tipo],
-        [field]: field === 'precio'
-          ? formatDots(value)
-          : (value === "" ? "" : parseInt(value) || 0)
-      }
+        [field]:
+          field === "precio"
+            ? formatDots(value)
+            : value === ""
+              ? ""
+              : parseInt(value) || 0,
+      },
     }));
   };
 
-  const totales = CLASIFICACIONES.reduce((acc, key) => {
-    const row = tableData[key];
-    if (!row) return acc;
+  const totales = CLASIFICACIONES.reduce(
+    (acc, key) => {
+      const row = tableData[key];
+      if (!row) return acc;
 
     const tieneIngreso = row.hoy !== "" && !isNaN(parseInt(row.hoy));
     const hoy = parseInt(row.hoy) || 0;
@@ -247,39 +256,51 @@ export default function ClasificacionView() {
     return acc;
   }, {});
 
-  const totalSobrantesUnidades = Object.values(sobrantesPorTipo).reduce((a, b) => a + b, 0);
+  const totalSobrantesUnidades = Object.values(sobrantesPorTipo).reduce(
+    (a, b) => a + b,
+    0,
+  );
 
   const obtenerTextoDesglose = (data) => {
     if (!data) return "Ninguno";
-    return CLASIFICACIONES
-      .map(tipo => {
+    return (
+      CLASIFICACIONES.map((tipo) => {
         const row = data[tipo];
         if (!row) return null;
         const cant = parseInt(row.hoy) || 0;
         return cant > 0 ? `${cant} ${tipo}` : null;
       })
-      .filter(Boolean)
-      .join(', ') || "Ninguno";
+        .filter(Boolean)
+        .join(", ") || "Ninguno"
+    );
   };
 
   const obtenerTextoSobrantes = (dataSobrantes) => {
     if (!dataSobrantes) return "Ninguno";
-    return CLASIFICACIONES
-      .map(tipo => {
+    return (
+      CLASIFICACIONES.map((tipo) => {
         const cant = dataSobrantes[tipo] || 0;
         return cant > 0 ? `${cant} ${tipo}` : null;
       })
-      .filter(Boolean)
-      .join(', ') || "Ninguno";
+        .filter(Boolean)
+        .join(", ") || "Ninguno"
+    );
   };
 
   const handleContinuarPaso2 = () => {
     if (totales.unidades <= 0) {
-      alert('Por favor, ingrese cantidades en la recolección antes de continuar.');
+      alert(
+        "Por favor, ingrese cantidades en la recolección antes de continuar.",
+      );
       return;
     }
-    if (produccionOrigen && totales.unidades !== Number(produccionOrigen.huevosBuenos)) {
-      alert(`La cantidad total de huevos clasificados (${totales.unidades}) debe ser exactamente igual a los huevos buenos recolectados (${produccionOrigen.huevosBuenos}).`);
+    if (
+      produccionOrigen &&
+      totales.unidades !== Number(produccionOrigen.huevosBuenos)
+    ) {
+      alert(
+        `La cantidad total de huevos clasificados (${totales.unidades}) debe ser exactamente igual a los huevos buenos recolectados (${produccionOrigen.huevosBuenos}).`,
+      );
       return;
     }
     setStep(2);
@@ -288,13 +309,18 @@ export default function ClasificacionView() {
   const handleSave = (e) => {
     e.preventDefault();
 
-    if (produccionOrigen && totales.unidades !== Number(produccionOrigen.huevosBuenos)) {
-      alert(`Error: La cantidad total de huevos clasificados (${totales.unidades}) no coincide con los huevos buenos recolectados (${produccionOrigen.huevosBuenos}).`);
+    if (
+      produccionOrigen &&
+      totales.unidades !== Number(produccionOrigen.huevosBuenos)
+    ) {
+      alert(
+        `Error: La cantidad total de huevos clasificados (${totales.unidades}) no coincide con los huevos buenos recolectados (${produccionOrigen.huevosBuenos}).`,
+      );
       return;
     }
 
     const detallesNormalizados = {};
-    CLASIFICACIONES.forEach(tipo => {
+    CLASIFICACIONES.forEach((tipo) => {
       detallesNormalizados[tipo] = {
         hoy: parseInt(tableData[tipo].hoy) || 0,
         anterior: parseInt(tableData[tipo].anterior) || 0,
@@ -303,7 +329,7 @@ export default function ClasificacionView() {
     });
 
     const registro = {
-      id: `REC-${String(obtenerSiguienteId()).padStart(3, '0')}`,
+      id: `REC-${String(obtenerSiguienteId()).padStart(3, "0")}`,
       fecha: generalInfo.fecha,
       galpon: generalInfo.galpon,
       lote: generalInfo.lote || "N/A",
@@ -319,15 +345,18 @@ export default function ClasificacionView() {
 
     const nuevoHistorial = [...historial, registro];
     setHistorial(nuevoHistorial);
-    localStorage.setItem('avisena_storage', JSON.stringify(nuevoHistorial));
+    localStorage.setItem("avisena_storage", JSON.stringify(nuevoHistorial));
 
     if (produccionOrigen) {
       const pendingSaved = localStorage.getItem("produccionesPendientes");
       if (pendingSaved) {
         try {
           let pending = JSON.parse(pendingSaved);
-          pending = pending.filter(item => item.id !== produccionOrigen.id);
-          localStorage.setItem("produccionesPendientes", JSON.stringify(pending));
+          pending = pending.filter((item) => item.id !== produccionOrigen.id);
+          localStorage.setItem(
+            "produccionesPendientes",
+            JSON.stringify(pending),
+          );
           setProduccionesPendientes(pending);
         } catch (err) {
           console.error("Error al actualizar pendientes:", err);
@@ -337,45 +366,47 @@ export default function ClasificacionView() {
       setProduccionOrigen(null);
     }
 
-    closeModal('registro');
-    openModal('exito');
+    closeModal("registro");
+    openModal("exito");
 
     setTableData(initialTableData);
     setGeneralInfo({
-      fecha: new Date().toISOString().split('T')[0],
+      fecha: new Date().toISOString().split("T")[0],
       galpon: "",
       lote: "",
       responsable: "",
-      observaciones: ""
+      observaciones: "",
     });
     setStep(1);
   };
 
   const verDetalle = (index) => {
     setSelectedRecordIndex(index);
-    openModal('detalle');
+    openModal("detalle");
   };
 
   const eliminarRegistro = (index) => {
-    if (window.confirm("¿Estás seguro de eliminar este registro permanentemente?")) {
-      setHistorial(prev => {
+    if (
+      window.confirm("¿Estás seguro de eliminar este registro permanentemente?")
+    ) {
+      setHistorial((prev) => {
         const copy = [...prev];
         copy.splice(index, 1);
-        localStorage.setItem('avisena_storage', JSON.stringify(copy));
+        localStorage.setItem("avisena_storage", JSON.stringify(copy));
         return copy;
       });
-      if (selectedRecordIndex === index) closeModal('detalle');
+      if (selectedRecordIndex === index) closeModal("detalle");
     }
   };
 
   const handleMandarAFinanzas = (reg) => {
-    localStorage.setItem('avisena_transfer_data', JSON.stringify(reg));
-    window.location.href = '/finanzas?action=importar_clasificacion';
+    localStorage.setItem("avisena_transfer_data", JSON.stringify(reg));
+    window.location.href = "/finanzas?action=importar_clasificacion";
   };
 
   const handleExportarExcel = () => {
     if (historial.length === 0) {
-      alert('No hay datos para exportar.');
+      alert("No hay datos para exportar.");
       return;
     }
     const encabezados = ["ID", "Fecha", "Galpon", "Responsable", "Unidades", "Panales", "Total", "Sobrantes Siguiente", "Observaciones"];
@@ -390,12 +421,12 @@ export default function ClasificacionView() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
-    link.download = `Avisena_Produccion_${new Date().toISOString().split('T')[0]}.csv`;
+    link.download = `Avisena_Produccion_${new Date().toISOString().split("T")[0]}.csv`;
     link.click();
   };
 
-  const historialFiltrado = historial.filter(reg =>
-    reg.galpon && reg.galpon.toString().includes(filtroGalpon)
+  const historialFiltrado = historial.filter(
+    (reg) => reg.galpon && reg.galpon.toString().includes(filtroGalpon),
   );
 
   return (
@@ -403,21 +434,28 @@ export default function ClasificacionView() {
       <main className="max-w-6xl mx-auto mt-12 px-6 pb-16 space-y-12">
         <section className="flex flex-col md:flex-row md:justify-between md:items-center bg-white rounded-2xl p-8 shadow-sm border border-gray-100 gap-6">
           <header>
-            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">Registro de Clasificación de Huevos</h1>
-            <p className="text-gray-500 text-sm mt-1">Control y seguimiento de recolección diaria — Unidad Avícola SENA</p>
+            <h1 className="text-3xl font-extrabold text-slate-900 tracking-tight">
+              Registro de Clasificación de Huevos
+            </h1>
+            <p className="text-gray-500 text-sm mt-1">
+              Control y seguimiento de recolección diaria — Unidad Avícola SENA
+            </p>
           </header>
           <button
             type="button"
             className=" bg-primary hover:bg-[#3dbd14] text-slate-950 font-extrabold py-3.5 px-6 rounded-xl transition-all shadow-md hover:shadow-lg flex items-center justify-center gap-2 tracking-wide text-sm"
-            onClick={() => openModal('registro')}
+            onClick={() => openModal("registro")}
           >
-            <span className="text-lg font-black">+</span> Agregar Nueva Clasificación
+            <span className="text-lg font-black">+</span> Agregar Nueva
+            Clasificación
           </button>
         </section>
 
         <section className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           <header className="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h2 className="text-lg font-bold text-slate-900">Historial de Clasificación</h2>
+            <h2 className="text-lg font-bold text-slate-900">
+              Historial de Clasificación
+            </h2>
             <aside className="flex items-center gap-3">
               <input
                 type="text"
@@ -453,11 +491,19 @@ export default function ClasificacionView() {
               <tbody className="divide-y divide-gray-100 normal-case font-normal text-sm text-gray-700">
                 {historialFiltrado.length === 0 ? (
                   <tr>
-                    <td colSpan="7" className="text-center py-16 text-gray-400 font-medium bg-slate-50/20">
+                    <td
+                      colSpan="7"
+                      className="text-center py-16 text-gray-400 font-medium bg-slate-50/20"
+                    >
                       <span className="flex flex-col items-center justify-center gap-2">
                         <span className="text-3xl">🥚</span>
-                        <strong className="text-sm font-semibold text-slate-500">No se encontraron registros de clasificación</strong>
-                        <span className="text-xs text-gray-450">Agrega una nueva clasificación para comenzar el historial.</span>
+                        <strong className="text-sm font-semibold text-slate-500">
+                          No se encontraron registros de clasificación
+                        </strong>
+                        <span className="text-xs text-gray-450">
+                          Agrega una nueva clasificación para comenzar el
+                          historial.
+                        </span>
                       </span>
                     </td>
                   </tr>
@@ -499,39 +545,10 @@ export default function ClasificacionView() {
                         <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold uppercase border border-slate-200">
                           {reg.responsable ? reg.responsable.charAt(0) : 'U'}
                         </span>
-                        <span className="text-gray-700 font-medium">{reg.responsable || "N/A"}</span>
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className="flex justify-center gap-1.5">
-                        <button
-                          type="button"
-                          className="bg-blue-50 hover:bg-blue-100 text-blue-600 w-8 h-8 flex items-center justify-center rounded-xl transition-all duration-150 shadow-sm"
-                          title="Mandar a Finanzas como Ingreso"
-                          onClick={() => handleMandarAFinanzas(reg)}
-                        >
-                          📊
-                        </button>
-                        <button
-                          type="button"
-                          className="bg-slate-100 hover:bg-slate-200/80 text-slate-700 w-8 h-8 flex items-center justify-center rounded-xl transition-all duration-150 shadow-sm"
-                          title="Ver Detalle"
-                          onClick={() => verDetalle(index)}
-                        >
-                          👁️
-                        </button>
-                        <button
-                          type="button"
-                          className="bg-red-50 hover:bg-red-100 text-red-600 w-8 h-8 flex items-center justify-center rounded-xl transition-all duration-150 shadow-sm"
-                          title="Eliminar"
-                          onClick={() => eliminarRegistro(index)}
-                        >
-                          🗑️
-                        </button>
-                      </span>
-                    </td>
-                  </tr>
-                ))}
+                      </td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </section>
@@ -543,12 +560,23 @@ export default function ClasificacionView() {
             <article className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
               <header className="flex justify-between items-center px-6 py-4 border-b bg-gray-50 shrink-0">
                 <h2 className="text-lg font-bold text-gray-900">
-                  {step === 1 ? "1. Clasificación de Huevos" : "2. Información General y Cierre"}
+                  {step === 1
+                    ? "1. Clasificación de Huevos"
+                    : "2. Información General y Cierre"}
                 </h2>
-                <button className="text-gray-400 hover:text-gray-600 text-2xl font-bold p-1" type="button" onClick={() => closeModal('registro')}>&times;</button>
+                <button
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold p-1"
+                  type="button"
+                  onClick={() => closeModal("registro")}
+                >
+                  &times;
+                </button>
               </header>
 
-              <form onSubmit={step === 2 ? handleSave : (e) => e.preventDefault()} className="p-6 overflow-y-auto flex-1 space-y-5">
+              <form
+                onSubmit={step === 2 ? handleSave : (e) => e.preventDefault()}
+                className="p-6 overflow-y-auto flex-1 space-y-5"
+              >
                 {step === 1 && (
                   <section className="space-y-5">
                     {produccionOrigen ? (
@@ -581,14 +609,16 @@ export default function ClasificacionView() {
                             onChange={(e) => {
                               const val = e.target.value;
                               if (val) {
-                                const found = produccionesPendientes.find(p => p.id.toString() === val);
+                                const found = produccionesPendientes.find(
+                                  (p) => p.id.toString() === val,
+                                );
                                 if (found) {
                                   setProduccionOrigen(found);
                                   setGeneralInfo({
                                     fecha: found.fecha,
                                     galpon: found.galpon,
                                     responsable: found.trabajador || "",
-                                    observaciones: found.notas || ""
+                                    observaciones: found.notas || "",
                                   });
                                 }
                               }
@@ -596,10 +626,13 @@ export default function ClasificacionView() {
                             className="w-full p-2.5 bg-white border border-slate-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-green-500 outline-none text-sm font-semibold transition-all"
                             value={produccionOrigen ? produccionOrigen.id : ""}
                           >
-                            <option value="">-- Seleccionar Recolección Pendiente --</option>
-                            {produccionesPendientes.map(p => (
+                            <option value="">
+                              -- Seleccionar Recolección Pendiente --
+                            </option>
+                            {produccionesPendientes.map((p) => (
                               <option key={p.id} value={p.id}>
-                                {p.fecha} - {p.galpon} ({p.huevosBuenos} huevos buenos)
+                                {p.fecha} - {p.galpon} ({p.huevosBuenos} huevos
+                                buenos)
                               </option>
                             ))}
                           </select>
@@ -641,7 +674,13 @@ export default function ClasificacionView() {
                                     value={row.hoy}
                                     min="0"
                                     placeholder="0"
-                                    onChange={(e) => handleTableChange(tipo, 'hoy', e.target.value)}
+                                    onChange={(e) =>
+                                      handleTableChange(
+                                        tipo,
+                                        "hoy",
+                                        e.target.value,
+                                      )
+                                    }
                                   />
                                 </td>
                                 <td className="px-4 py-3 text-center min-w-[130px]">
@@ -681,7 +720,9 @@ export default function ClasificacionView() {
                                     readOnly
                                   />
                                 </td>
-                                <td className="px-4 py-3 text-right font-extrabold text-slate-900">{formatCurrency(sub)}</td>
+                                <td className="px-4 py-3 text-right font-extrabold text-slate-900">
+                                  {formatCurrency(sub)}
+                                </td>
                               </tr>
                             );
                           })}
@@ -700,8 +741,12 @@ export default function ClasificacionView() {
                         <strong className="text-xs font-bold text-green-700 mt-1.5 block leading-tight">{formatExactPanalesText(totales.unidades)}</strong>
                       </span>
                       <span className="text-center block">
-                        <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Valor Total</span>
-                        <strong className="text-lg font-black text-green-600 mt-0.5 block">{formatCurrency(totales.dinero)}</strong>
+                        <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">
+                          Valor Total
+                        </span>
+                        <strong className="text-lg font-black text-green-600 mt-0.5 block">
+                          {formatCurrency(totales.dinero)}
+                        </strong>
                       </span>
                     </section>
 
@@ -712,11 +757,16 @@ export default function ClasificacionView() {
                         }`}>
                         <span className="text-[10px] font-bold uppercase tracking-wider">Validación de Cantidad</span>
                         <strong className="text-lg font-black">
-                          {totales.unidades} / {produccionOrigen.huevosBuenos} Huevos Clasificados
+                          {totales.unidades} / {produccionOrigen.huevosBuenos}{" "}
+                          Huevos Clasificados
                         </strong>
                         <span className="text-xs font-semibold">
-                          {totales.unidades === Number(produccionOrigen.huevosBuenos) ? (
-                            <span className="text-green-700">✓ La cantidad coincide perfectamente. ¡Listo para continuar!</span>
+                          {totales.unidades ===
+                          Number(produccionOrigen.huevosBuenos) ? (
+                            <span className="text-green-700">
+                              ✓ La cantidad coincide perfectamente. ¡Listo para
+                              continuar!
+                            </span>
                           ) : (
                             <span>
                               {totales.unidades < Number(produccionOrigen.huevosBuenos)
@@ -729,7 +779,11 @@ export default function ClasificacionView() {
                       </div>
                     )}
 
-                    <button type="button" className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-colors shadow-md" onClick={handleContinuarPaso2}>
+                    <button
+                      type="button"
+                      className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-colors shadow-md"
+                      onClick={handleContinuarPaso2}
+                    >
                       CONTINUAR &rarr;
                     </button>
                   </section>
@@ -739,12 +793,32 @@ export default function ClasificacionView() {
                   <section className="space-y-5">
                     <fieldset className="grid grid-cols-2 gap-4 border-none p-0">
                       <label className="flex flex-col gap-1">
-                        <span className="text-xs font-bold text-gray-600 uppercase">Consecutivo</span>
-                        <input type="text" value={`REC-${String(obtenerSiguienteId()).padStart(3, '0')}`} readOnly className="p-2.5 bg-gray-100 border rounded-xl font-bold text-green-600 outline-none" />
+                        <span className="text-xs font-bold text-gray-600 uppercase">
+                          Consecutivo
+                        </span>
+                        <input
+                          type="text"
+                          value={`REC-${String(obtenerSiguienteId()).padStart(3, "0")}`}
+                          readOnly
+                          className="p-2.5 bg-gray-100 border rounded-xl font-bold text-green-600 outline-none"
+                        />
                       </label>
                       <label className="flex flex-col gap-1">
-                        <span className="text-xs font-bold text-gray-600 uppercase">Fecha</span>
-                        <input type="date" value={generalInfo.fecha} onChange={e => setGeneralInfo({ ...generalInfo, fecha: e.target.value })} required className="p-2.5 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none" />
+                        <span className="text-xs font-bold text-gray-600 uppercase">
+                          Fecha
+                        </span>
+                        <input
+                          type="date"
+                          value={generalInfo.fecha}
+                          onChange={(e) =>
+                            setGeneralInfo({
+                              ...generalInfo,
+                              fecha: e.target.value,
+                            })
+                          }
+                          required
+                          className="p-2.5 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none"
+                        />
                       </label>
 
                       <label className="flex flex-col gap-1">
@@ -796,17 +870,42 @@ export default function ClasificacionView() {
                       </span>
 
                       <label className="flex flex-col gap-1 col-span-2">
-                        <span className="text-xs font-bold text-gray-600 uppercase">Observaciones</span>
-                        <textarea rows="2" value={generalInfo.observaciones} onChange={e => setGeneralInfo({ ...generalInfo, observaciones: e.target.value })} className="p-2.5 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none resize-none"></textarea>
+                        <span className="text-xs font-bold text-gray-600 uppercase">
+                          Observaciones
+                        </span>
+                        <textarea
+                          rows="2"
+                          value={generalInfo.observaciones}
+                          onChange={(e) =>
+                            setGeneralInfo({
+                              ...generalInfo,
+                              observaciones: e.target.value,
+                            })
+                          }
+                          className="p-2.5 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none resize-none"
+                        ></textarea>
                       </label>
                     </fieldset>
                     <footer className="flex justify-between items-center border-t pt-4">
-                      <button type="button" className="text-gray-500 hover:text-gray-700 font-bold text-sm" onClick={() => setStep(1)}>&larr; Volver</button>
+                      <button
+                        type="button"
+                        className="text-gray-500 hover:text-gray-700 font-bold text-sm"
+                        onClick={() => setStep(1)}
+                      >
+                        &larr; Volver
+                      </button>
                       <span className="flex gap-3">
-                        <button type="button" className="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 px-4 rounded-xl transition-colors text-sm" onClick={handleLimpiarFormulario}>
+                        <button
+                          type="button"
+                          className="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 px-4 rounded-xl transition-colors text-sm"
+                          onClick={handleLimpiarFormulario}
+                        >
                           BORRAR TODO
                         </button>
-                        <button type="submit" className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-xl transition-colors shadow-md">
+                        <button
+                          type="submit"
+                          className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-xl transition-colors shadow-md"
+                        >
                           FINALIZAR Y GUARDAR
                         </button>
                       </span>
@@ -822,9 +921,19 @@ export default function ClasificacionView() {
         {modals.exito && (
           <span className="fixed inset-0 bg-slate-950/90 flex items-center justify-center p-4 z-50 block">
             <article className="text-center text-white max-w-sm flex flex-col items-center">
-              <span className="text-4xl text-green-500 border-4 border-green-500 w-20 h-20 flex items-center justify-center rounded-full font-bold mb-4">✓</span>
-              <h1 className="text-2xl font-black tracking-wide mb-2">¡REGISTRO EXITOSO!</h1>
-              <button type="button" className="w-full bg-green-500 text-slate-950 font-black py-3 px-8 rounded-xl mt-6 hover:bg-green-400 transition-colors" onClick={() => closeModal('exito')}>CONTINUAR</button>
+              <span className="text-4xl text-green-500 border-4 border-green-500 w-20 h-20 flex items-center justify-center rounded-full font-bold mb-4">
+                ✓
+              </span>
+              <h1 className="text-2xl font-black tracking-wide mb-2">
+                ¡REGISTRO EXITOSO!
+              </h1>
+              <button
+                type="button"
+                className="w-full bg-green-500 text-slate-950 font-black py-3 px-8 rounded-xl mt-6 hover:bg-green-400 transition-colors"
+                onClick={() => closeModal("exito")}
+              >
+                CONTINUAR
+              </button>
             </article>
           </span>
         )}
@@ -832,9 +941,19 @@ export default function ClasificacionView() {
         {modals.borrado && (
           <span className="fixed inset-0 bg-slate-950/90 flex items-center justify-center p-4 z-50 block">
             <article className="text-center text-white max-w-sm flex flex-col items-center">
-              <span className="text-4xl text-red-500 border-4 border-red-500 w-20 h-20 flex items-center justify-center rounded-full font-bold mb-4">✕</span>
-              <h1 className="text-2xl font-black tracking-wide mb-2">¡FORMULARIO LIMPIADO!</h1>
-              <button type="button" className="w-full bg-red-600 text-white font-black py-3 px-8 rounded-xl mt-6 hover:bg-red-500 transition-colors" onClick={() => closeModal('borrado')}>CONTINUAR</button>
+              <span className="text-4xl text-red-500 border-4 border-red-500 w-20 h-20 flex items-center justify-center rounded-full font-bold mb-4">
+                ✕
+              </span>
+              <h1 className="text-2xl font-black tracking-wide mb-2">
+                ¡FORMULARIO LIMPIADO!
+              </h1>
+              <button
+                type="button"
+                className="w-full bg-red-600 text-white font-black py-3 px-8 rounded-xl mt-6 hover:bg-red-500 transition-colors"
+                onClick={() => closeModal("borrado")}
+              >
+                CONTINUAR
+              </button>
             </article>
           </span>
         )}
@@ -844,8 +963,16 @@ export default function ClasificacionView() {
           <span className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 block">
             <article className="bg-white rounded-3xl w-full max-w-xl overflow-hidden shadow-2xl max-h-[90vh] flex flex-col">
               <header className="flex justify-between items-center px-6 py-4 border-b bg-gray-50 shrink-0">
-                <h2 className="text-lg font-bold text-gray-900">Detalle de Producción</h2>
-                <button className="text-gray-400 hover:text-gray-600 text-2xl font-bold p-1" type="button" onClick={() => closeModal('detalle')}>&times;</button>
+                <h2 className="text-lg font-bold text-gray-900">
+                  Detalle de Producción
+                </h2>
+                <button
+                  className="text-gray-400 hover:text-gray-600 text-2xl font-bold p-1"
+                  type="button"
+                  onClick={() => closeModal("detalle")}
+                >
+                  &times;
+                </button>
               </header>
               {(() => {
                 const r = historial[selectedRecordIndex];
@@ -860,7 +987,9 @@ export default function ClasificacionView() {
                     </span>
 
                     <section>
-                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5">Producción por Tipo</h3>
+                      <h3 className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2.5">
+                        Producción por Tipo
+                      </h3>
                       <span className="bg-slate-50 border border-gray-100 rounded-2xl p-4 grid grid-cols-3 sm:grid-cols-6 gap-2 text-center block">
                         {CLASIFICACIONES.map((tipo) => {
                           const det = r.detalles?.[tipo];
@@ -889,8 +1018,12 @@ export default function ClasificacionView() {
                         <span className="text-xl font-black text-green-900">{formatExactPanalesText(getUnidades(r))}</span>
                       </span>
                       <span className="text-right block">
-                        <span className="block text-xs font-bold text-green-800 uppercase tracking-wide">Valor Total</span>
-                        <span className="text-xl font-black text-green-700">{r.total}</span>
+                        <span className="block text-xs font-bold text-green-800 uppercase tracking-wide">
+                          Valor Total
+                        </span>
+                        <span className="text-xl font-black text-green-700">
+                          {r.total}
+                        </span>
                       </span>
                     </span>
 
@@ -900,7 +1033,9 @@ export default function ClasificacionView() {
                     </blockquote>
 
                     <blockquote className="bg-gray-50 border-l-4 border-slate-400 p-3 rounded-r-xl text-xs italic text-gray-600">
-                      <strong className="block text-gray-700 not-italic font-bold mb-1 uppercase tracking-wider">Observaciones:</strong>
+                      <strong className="block text-gray-700 not-italic font-bold mb-1 uppercase tracking-wider">
+                        Observaciones:
+                      </strong>
                       "{r.obs}"
                     </blockquote>
                   </section>

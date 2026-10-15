@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { X, PlusCircle, Save, UploadCloud } from 'lucide-react';
 
+const nombresPerfilPorUsuario = {
+  admin: 'Instructor Líder (Admin)',
+  aprendiz: 'Aprendiz Sena',
+  investigador: 'Instructor Investigador',
+};
+
 export default function FormLoteNuevo({ onSubmit, onClose, initialData = null }) {
   const [formData, setFormData] = useState(() => ({
     fecha: initialData?.fecha || '',
@@ -28,6 +34,34 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
   });
 
   const isEditing = Boolean(initialData?.id);
+
+  useEffect(() => {
+    if (isEditing) return;
+
+    const cargarResponsable = () => {
+      const userId = localStorage.getItem('user_id') || 'admin';
+      const nombrePorDefecto = nombresPerfilPorUsuario[userId] || nombresPerfilPorUsuario.admin;
+      const perfilGuardado = localStorage.getItem(`user_profile_${userId}`);
+
+      if (perfilGuardado) {
+        try {
+          const perfil = JSON.parse(perfilGuardado);
+          if (typeof perfil?.name === 'string' && perfil.name.trim()) {
+            setFormData((prev) => ({ ...prev, responsable: perfil.name.trim() }));
+            return;
+          }
+        } catch (error) {
+          console.error('No se pudo cargar el responsable desde el perfil.', error);
+        }
+      }
+
+      setFormData((prev) => ({ ...prev, responsable: nombrePorDefecto }));
+    };
+
+    cargarResponsable();
+    window.addEventListener('storage', cargarResponsable);
+    return () => window.removeEventListener('storage', cargarResponsable);
+  }, [isEditing]);
 
   useEffect(() => {
     if (!initialData) return;
@@ -229,6 +263,7 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
                   placeholder="Nombre del responsable"
                   required
                   value={formData.responsable}
+                  readOnly={!isEditing}
                   onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
                 />
               </div>
