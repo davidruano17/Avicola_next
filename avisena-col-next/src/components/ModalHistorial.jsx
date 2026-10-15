@@ -9,6 +9,7 @@ const ModalHistorial = ({
   onExport,
   onDeleteItem,
   onClear,
+  onEditItem,
 }) => {
   if (!isOpen) return null;
 
@@ -30,7 +31,7 @@ const ModalHistorial = ({
           <div className="flex items-center gap-3">
             <button
               onClick={() => onExport && onExport()}
-              className="text-sm font-bold text-[#0c2317] bg-[#f1fdf7] dark:bg-emerald-950/10 px-3 py-2 rounded-lg hover:bg-[#e6fbef] transition-colors"
+              className="text-sm font-bold text-[#0c2317] bg-[#f1fdf7] dark:bg-emerald-950/10 px-3 py-2 rounded-lg hover:bg-[#e6fbef] transition-colors cursor-pointer border-none"
             >
               Exportar
             </button>
@@ -44,7 +45,7 @@ const ModalHistorial = ({
                 )
                   onClear();
               }}
-              className="text-sm font-bold text-white bg-red-500 px-3 py-2 rounded-lg hover:bg-red-600 transition-colors"
+              className="text-sm font-bold text-white bg-red-500 px-3 py-2 rounded-lg hover:bg-red-600 transition-colors cursor-pointer border-none"
             >
               Borrar Todo
             </button>
@@ -101,8 +102,9 @@ const ModalHistorial = ({
                       </span>
                     </button>
                     <button
-                      className="text-slate-300 hover:text-[#2ea66d] p-1 transition-colors cursor-pointer bg-transparent border-none"
-                      title="Editar"
+                      onClick={() => onEditItem && onEditItem(item)}
+                      className="text-[#2ea66d] hover:text-emerald-700 p-1 transition-colors cursor-pointer bg-transparent border-none"
+                      title="Editar registro"
                     >
                       <span className="material-symbols-outlined text-lg">
                         edit
