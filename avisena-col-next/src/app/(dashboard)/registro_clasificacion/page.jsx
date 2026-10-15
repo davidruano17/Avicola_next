@@ -228,19 +228,19 @@ export default function ClasificacionView() {
       const row = tableData[key];
       if (!row) return acc;
 
-    const tieneIngreso = row.hoy !== "" && !isNaN(parseInt(row.hoy));
-    const hoy = parseInt(row.hoy) || 0;
-    const anterior = parseInt(row.anterior) || 0;
-    const acumulado = tieneIngreso ? hoy + anterior : 0;
-    const precio = cleanNum(row.precio);
-    const panalesAcumulados = Math.floor(acumulado / 30);
-    const sub = panalesAcumulados * precio;
+      const tieneIngreso = row.hoy !== "" && !isNaN(parseInt(row.hoy));
+      const hoy = parseInt(row.hoy) || 0;
+      const anterior = parseInt(row.anterior) || 0;
+      const acumulado = tieneIngreso ? hoy + anterior : 0;
+      const precio = cleanNum(row.precio);
+      const panalesAcumulados = Math.floor(acumulado / 30);
+      const sub = panalesAcumulados * precio;
 
-    acc.unidades += hoy;
-    acc.panales += panalesAcumulados;
-    acc.dinero += sub;
-    return acc;
-  }, { unidades: 0, panales: 0, dinero: 0 });
+      acc.unidades += hoy;
+      acc.panales += panalesAcumulados;
+      acc.dinero += sub;
+      return acc;
+    }, { unidades: 0, panales: 0, dinero: 0 });
 
   const sobrantesPorTipo = CLASIFICACIONES.reduce((acc, tipo) => {
     const row = tableData[tipo];
@@ -507,43 +507,45 @@ export default function ClasificacionView() {
                       </span>
                     </td>
                   </tr>
-                ) : historialFiltrado.map((reg, index) => (
-                  <tr key={index} className="hover:bg-slate-50/60 transition-colors">
-                    <td className="p-4">
-                      <span className="font-bold text-slate-900 block font-mono tracking-tight">{reg.id}</span>
-                      <span className="text-xs text-gray-400 block mt-0.5">{reg.fecha}</span>
-                    </td>
-                    <td className="p-4">
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 w-max">
-                        Galpón {reg.galpon}
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className="flex flex-col">
-                        <span className="font-extrabold text-slate-950">
-                          {getUnidades(reg)} <span className="text-[10px] text-gray-400 font-semibold">UDS</span>
-                          <span className="text-xs font-normal text-gray-500 block normal-case" translate="no">
-                            ({obtenerTextoDesglose(reg.detalles || {})})
+                ) : (
+                  historialFiltrado.map((reg, index) => (
+                    <tr key={index} className="hover:bg-slate-50/60 transition-colors">
+                      <td className="p-4">
+                        <span className="font-bold text-slate-900 block font-mono tracking-tight">{reg.id}</span>
+                        <span className="text-xs text-gray-400 block mt-0.5">{reg.fecha}</span>
+                      </td>
+                      <td className="p-4">
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 w-max">
+                          Galpón {reg.galpon}
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span className="flex flex-col">
+                          <span className="font-extrabold text-slate-950">
+                            {getUnidades(reg)} <span className="text-[10px] text-gray-400 font-semibold">UDS</span>
+                            <span className="text-xs font-normal text-gray-500 block normal-case" translate="no">
+                              ({obtenerTextoDesglose(reg.detalles || {})})
+                            </span>
+                          </span>
+                          <span className="text-xs font-semibold text-green-600 mt-0.5">{formatExactPanalesText(getUnidades(reg))}</span>
+                        </span>
+                      </td>
+                      <td className="p-4">
+                        <span className="flex flex-col">
+                          <span className="font-bold text-amber-700">
+                            {reg.totalSobrantes || 0} <span className="text-[10px] text-amber-500 font-semibold">UDS</span>
+                          </span>
+                          <span className="text-xs font-normal text-gray-400 block normal-case" translate="no">
+                            ({obtenerTextoSobrantes(reg.sobrantesSiguiente || reg.sobrantesParaMañana)})
                           </span>
                         </span>
-                        <span className="text-xs font-semibold text-green-600 mt-0.5">{formatExactPanalesText(getUnidades(reg))}</span>
-                      </span>
-                    </td>
-                    <td className="p-4">
-                      <span className="flex flex-col">
-                        <span className="font-bold text-amber-700">
-                          {reg.totalSobrantes || 0} <span className="text-[10px] text-amber-500 font-semibold">UDS</span>
-                        </span>
-                        <span className="text-xs font-normal text-gray-400 block normal-case" translate="no">
-                          ({obtenerTextoSobrantes(reg.sobrantesSiguiente || reg.sobrantesParaMañana)})
-                        </span>
-                      </span>
-                    </td>
-                    <td className="p-4 font-extrabold text-green-600 text-base">{reg.total}</td>
-                    <td className="p-4 text-center">
-                      <span className="flex items-center justify-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold uppercase border border-slate-200">
-                          {reg.responsable ? reg.responsable.charAt(0) : 'U'}
+                      </td>
+                      <td className="p-4 font-extrabold text-green-600 text-base">{reg.total}</td>
+                      <td className="p-4 text-center">
+                        <span className="flex items-center justify-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-600 flex items-center justify-center text-[10px] font-bold uppercase border border-slate-200">
+                            {reg.responsable ? reg.responsable.charAt(0) : 'U'}
+                          </span>
                         </span>
                       </td>
                     </tr>
@@ -762,7 +764,7 @@ export default function ClasificacionView() {
                         </strong>
                         <span className="text-xs font-semibold">
                           {totales.unidades ===
-                          Number(produccionOrigen.huevosBuenos) ? (
+                            Number(produccionOrigen.huevosBuenos) ? (
                             <span className="text-green-700">
                               ✓ La cantidad coincide perfectamente. ¡Listo para
                               continuar!
