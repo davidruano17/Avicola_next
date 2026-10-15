@@ -1,6 +1,61 @@
 import { useState, useEffect } from 'react';
 import { X, PlusCircle, Save, UploadCloud } from 'lucide-react';
 
+const PESOS_REFERENCIA = {
+  'hy-line brown': [70, 125, 190, 265, 360, 460, 560, 670, 780, 890, 990, 1080, 1160, 1230, 1300, 1370, 1440],
+  'lohmann brown': [75, 130, 195, 273, 366, 469, 573, 677, 777, 873, 963, 1047, 1128, 1205, 1279, 1351, 1421, 1493],
+  'dekalb': [61, 115, 170, 240, 330, 430, 530, 621, 710, 800, 890, 985, 1080, 1165, 1250, 1335, 1410, 1460],
+  'isa brown': [69, 123, 185, 259, 352, 453, 554, 656, 756, 854, 948, 1037, 1123, 1200, 1276, 1352, 1424, 1477],
+  'babcock': [69, 123, 185, 259, 352, 453, 554, 656, 756, 854, 948, 1037, 1123, 1200, 1276, 1352, 1424, 1477],
+};
+
+const convertirPesoAGramos = (valor) => {
+  const texto = String(valor).trim().toLowerCase().replace(/\s/g, '');
+  const unidadKg = texto.endsWith('kg');
+  const numero = texto.replace(/(kg|g)$/, '');
+
+  if (!/^\d[\d.,]*$/.test(numero)) return null;
+
+  let normalizado = numero;
+  const ultimoPunto = numero.lastIndexOf('.');
+  const ultimaComa = numero.lastIndexOf(',');
+
+  if (ultimoPunto !== -1 && ultimaComa !== -1) {
+    const separadorDecimal = ultimoPunto > ultimaComa ? '.' : ',';
+    const separadorMiles = separadorDecimal === '.' ? ',' : '.';
+    normalizado = numero.split(separadorMiles).join('').replace(separadorDecimal, '.');
+  } else if (ultimoPunto !== -1 || ultimaComa !== -1) {
+    const separador = ultimoPunto !== -1 ? '.' : ',';
+    const decimales = numero.length - numero.lastIndexOf(separador) - 1;
+    if (!unidadKg && decimales === 3) {
+      normalizado = numero.split(separador).join('');
+    } else {
+      normalizado = numero.replace(separador, '.');
+    }
+  }
+
+  const peso = Number(normalizado) * (unidadKg ? 1000 : 1);
+  return Number.isFinite(peso) && peso > 0 ? peso : null;
+};
+
+const calcularSemana = (linea, pesoPorAve) => {
+  const pesos = PESOS_REFERENCIA[linea.trim().toLowerCase()];
+  if (!pesos || !Number.isFinite(pesoPorAve) || pesoPorAve <= 0) return null;
+
+  const index = pesoPorAve <= pesos[0]
+    ? 0
+    : pesoPorAve >= pesos[pesos.length - 1]
+      ? pesos.length - 2
+      : pesos.findIndex((peso, currentIndex) => currentIndex < pesos.length - 1 && pesoPorAve <= pesos[currentIndex + 1]);
+  const semana = index + 1 + (pesoPorAve - pesos[index]) / (pesos[index + 1] - pesos[index]);
+  return Number(Math.max(1, semana).toFixed(1));
+};
+
+const obtenerSemanaCalculada = (linea, pesoPromedio) => {
+  const pesoEnGramos = convertirPesoAGramos(pesoPromedio);
+  return pesoEnGramos === null ? null : calcularSemana(linea, pesoEnGramos);
+};
+
 export default function FormLoteNuevo({ onSubmit, onClose, initialData = null }) {
   const [formData, setFormData] = useState(() => ({
     fecha: initialData?.fecha || '',
@@ -94,8 +149,14 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    onSubmit(formData);
+    const semanaCalculada = obtenerSemanaCalculada(formData.linea, formData.pesopromedio);
+    onSubmit({
+      ...formData,
+      semanadevida: semanaCalculada === null ? formData.semanadevida : String(semanaCalculada),
+    });
   };
+
+  const semanaCalculada = obtenerSemanaCalculada(formData.linea, formData.pesopromedio);
 
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex justify-center items-center backdrop-blur-sm p-4 overflow-y-auto">
@@ -193,11 +254,11 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
                   id="semanadevida"
                   type="number"
                   min="1"
+                  step="any"
                   className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
                   placeholder="Semana de vida"
-                  required
-                  value={formData.semanadevida}
-                  onChange={(e) => setFormData({ ...formData, semanadevida: e.target.value })}
+                  readOnly
+                  value={semanaCalculada ?? formData.semanadevida}
                 />
               </div>
             </div>
