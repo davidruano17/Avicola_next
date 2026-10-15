@@ -2,6 +2,16 @@
 
 import React, { useState, useEffect } from "react";
 
+// Precios estándar por panal según clasificación
+const PRECIOS_POR_DEFECTO = {
+  "C": 10500,
+  "B": 12000,
+  "A": 13500,
+  "AA": 15000,
+  "AAA": 16500,
+  "Jumbo": 18000
+};
+
 const formatearFecha = (fechaStr) => {
   if (!fechaStr) return "";
   const partes = fechaStr.split("-");
@@ -36,8 +46,7 @@ const estadoInicialFormulario = {
   estado: "Completado",
   tipoHuevos: "C",
   panalesVendidos: "",
-  panalesReserva: "",
-  precioPorPanal: "12000", 
+  precioPorPanal: "10500",
   cantidadInsumo: "",
   precioUnitarioInsumo: "",
   detalleVeterinario: "",
@@ -48,7 +57,7 @@ const estadoInicialFormulario = {
   desgloseInventario: []
 };
 
-export default function Page() {
+export default function FinanzasAvicolas() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [paginaActual, setPaginaActual] = useState(1);
@@ -61,7 +70,7 @@ export default function Page() {
   const [nuevaTransaccion, setNuevaTransaccion] = useState(estadoInicialFormulario);
   const [cargado, setCargado] = useState(false);
 
-  // 1. CARGAR REGISTROS PREVIOS DE LOCALSTORAGE AL INICIALIZAR
+  // 1. CARGAR REGISTROS PREVIOS DE LOCALSTORAGE
   useEffect(() => {
     if (typeof window === "undefined") return;
     const datosGuardados = localStorage.getItem("avisena_transacciones");
@@ -75,52 +84,56 @@ export default function Page() {
     setCargado(true);
   }, []);
 
-  // 2. GUARDAR REGISTROS AUTOMÁTICAMENTE CUANDO CAMBIE `transacciones`
+  // 2. GUARDAR REGISTROS EN LOCALSTORAGE
   useEffect(() => {
     if (typeof window === "undefined" || !cargado) return;
     localStorage.setItem("avisena_transacciones", JSON.stringify(transacciones));
   }, [transacciones, cargado]);
 
-  // 3. CAPTURAR E IMPORTAR DATOS DE CLASIFICACIÓN
+  // 3. CAPTURAR E IMPORTAR DATOS DE CLASIFICACIÓN CON PRECIOS
   useEffect(() => {
     if (typeof window === "undefined") return;
-    
+
     const params = new URLSearchParams(window.location.search);
     if (params.get('action') === 'importar_clasificacion') {
       const dataRaw = localStorage.getItem('avisena_transfer_data');
       if (dataRaw) {
         const registroClasif = JSON.parse(dataRaw);
-        
+
         let montoTotalAcumulado = 0;
         let totalPanalesAcumulados = 0;
         const desgloseDetalles = [];
         const desgloseInventarioLote = [];
         const tipos = ['C', 'B', 'A', 'AA', 'AAA', 'Jumbo'];
         let primerTipoConDatos = "C";
-        let primerPrecioConDatos = "12000"; 
+        let primerPrecioConDatos = "10500";
         let asignoPrimero = false;
 
         tipos.forEach(t => {
           const det = registroClasif.detalles?.[t];
-          if (det && det.hoy > 0) {
-            const panalesCalculados = Math.floor(det.hoy / 30);
-            const unidadesSueltas = det.hoy % 30;
-            const precioEstablecido = 12000; 
-            const subtotal = Math.round(panalesCalculados * precioEstablecido);
+          if (det) {
+            const tieneIngreso = det.hoy !== "" && det.hoy !== null && !isNaN(parseInt(det.hoy));
+            const hoy = parseInt(det.hoy) || 0;
+            const anterior = parseInt(det.anterior) || 0;
+            const acumulado = tieneIngreso ? (hoy + anterior) : 0;
+            const panalesCalculados = Math.floor(acumulado / 30);
 
-            montoTotalAcumulado += subtotal;
-            totalPanalesAcumulados += panalesCalculados;
+            if (panalesCalculados > 0) {
+              const precioEstablecido = det.precio ? parseInt(det.precio.toString().replace(/\D/g, "")) : (PRECIOS_POR_DEFECTO[t] || 12000);
 
-            desgloseInventarioLote.push({
-              clasificacion: t,
-              unidades: det.hoy,
-              panales: panalesCalculados,
-              unidadesSueltas: unidadesSueltas,
-              precioPanal: precioEstablecido,
-              enReserva: det.reserva || 0 
-            });
+              const subtotal = panalesCalculados * precioEstablecido;
 
-            if (panalesCalculados > 0 || unidadesSueltas > 0) {
+              montoTotalAcumulado += subtotal;
+              totalPanalesAcumulados += panalesCalculados;
+
+              desgloseInventarioLote.push({
+                clasificacion: t,
+                unidades: acumulado,
+                panales: panalesCalculados,
+                precioPanal: precioEstablecido,
+                subtotal: subtotal
+              });
+
               desgloseDetalles.push(`${panalesCalculados} pnl [${t}]`);
               if (!asignoPrimero) {
                 primerTipoConDatos = t;
@@ -144,7 +157,7 @@ export default function Page() {
           tipo: "Ingreso",
           categoria: "Venta de Huevos",
           galpon: registroClasif.galpon ? `Galpón ${registroClasif.galpon}` : "Galpón 1",
-          tipoHuevos: primerTipoConDatos, 
+          tipoHuevos: primerTipoConDatos,
           panalesVendidos: totalPanalesAcumulados.toString(),
           precioPorPanal: primerPrecioConDatos,
           monto: montoTotalAcumulado,
@@ -204,9 +217,9 @@ export default function Page() {
 
     transaccionesFiltradasPorFecha.forEach(t => {
       if (!t.fecha) return;
-      const mesRegistro = t.fecha.split("-")[1]; 
+      const mesRegistro = t.fecha.split("-")[1];
       const mesEncontrado = mesesEstructura.find(m => m.clave === mesRegistro);
-      
+
       if (mesEncontrado) {
         if (t.tipo === "Ingreso") mesEncontrado.ingresos += t.monto;
         else mesEncontrado.gastos += t.monto;
@@ -225,7 +238,6 @@ export default function Page() {
 
   const datosGraficaFormateados = obtenerDatosGraficaFija();
 
-  // BÚSQUEDA EXTENDIDA POR CONCEPTO, CATEGORÍA, GALPÓN Y LOTE / DETALLE
   const transaccionesFiltradas = transaccionesFiltradasPorFecha.filter(t => {
     const query = searchQuery.toLowerCase();
     return (
@@ -245,7 +257,7 @@ export default function Page() {
       const actualizacion = { ...prev, [campo]: valorLimpio };
       const vendidos = parseFloat(campo === "panalesVendidos" ? valorLimpio : prev.panalesVendidos) || 0;
       const precio = parseFloat(campo === "precioPorPanal" ? valorLimpio : prev.precioPorPanal) || 0;
-      
+
       actualizacion.monto = Math.round(vendidos * precio);
       return actualizacion;
     });
@@ -257,7 +269,7 @@ export default function Page() {
       const actualizacion = { ...prev, [campo]: valorLimpio };
       const cantidad = parseFloat(campo === "cantidadInsumo" ? valorLimpio : prev.cantidadInsumo) || 0;
       const precio = parseFloat(campo === "precioUnitarioInsumo" ? valorLimpio : prev.precioUnitarioInsumo) || 0;
-      
+
       actualizacion.monto = Math.round(cantidad * precio);
       return actualizacion;
     });
@@ -309,13 +321,12 @@ export default function Page() {
       detalle: nuevaTransaccion.detalleVeterinario || "Operación registrada",
       tipoHuevos: nuevaTransaccion.tipo === "Ingreso" ? nuevaTransaccion.tipoHuevos : undefined,
       panalesVendidos: nuevaTransaccion.tipo === "Ingreso" ? (parseFloat(nuevaTransaccion.panalesVendidos) || 0) : undefined,
-      panalesReserva: nuevaTransaccion.tipo === "Ingreso" ? (parseFloat(nuevaTransaccion.panalesReserva) || 0) : undefined,
-      precioPorPanal: nuevaTransaccion.tipo === "Ingreso" ? (parseFloat(nuevaTransaccion.precioPorPanal) || 12000) : undefined,
+      precioPorPanal: nuevaTransaccion.tipo === "Ingreso" ? (parseFloat(nuevaTransaccion.precioPorPanal) || PRECIOS_POR_DEFECTO[nuevaTransaccion.tipoHuevos] || 12000) : undefined,
       catStyle: coloresCategorias[nuevaTransaccion.categoria] || "bg-slate-100 text-slate-800",
       estStyle: coloresEstados[nuevaTransaccion.estado],
       desgloseInventario: nuevaTransaccion.esMultiClasificada ? nuevaTransaccion.desgloseInventario : null
     };
-    
+
     nuevosRegistros.push(principalItem);
 
     if (nuevaTransaccion.tipo === "Ingreso" && nuevaTransaccion.asociarGastoInmediato) {
@@ -347,7 +358,6 @@ export default function Page() {
   const calcularMetricasPorClasificacion = (tipo) => {
     let vendidos = 0;
     let ingresos = 0;
-    let reserva = 0;
     let conteoPrecios = 0;
     let sumaPrecios = 0;
 
@@ -357,8 +367,7 @@ export default function Page() {
           const itemDesglose = t.desgloseInventario.find(d => d.clasificacion === tipo);
           if (itemDesglose) {
             vendidos += itemDesglose.panales;
-            ingresos += (itemDesglose.panales * itemDesglose.precioPanal);
-            reserva += itemDesglose.enReserva || 0;
+            ingresos += itemDesglose.subtotal || (itemDesglose.panales * itemDesglose.precioPanal);
             if (itemDesglose.precioPanal > 0) {
               sumaPrecios += itemDesglose.precioPanal;
               conteoPrecios++;
@@ -367,7 +376,6 @@ export default function Page() {
         } else if (t.tipoHuevos === tipo) {
           vendidos += (t.panalesVendidos || 0);
           ingresos += t.monto;
-          reserva += (t.panalesReserva || 0);
           if (t.precioPorPanal > 0) {
             sumaPrecios += t.precioPorPanal;
             conteoPrecios++;
@@ -376,27 +384,27 @@ export default function Page() {
       }
     });
 
-    const precioPromedio = conteoPrecios > 0 ? sumaPrecios / conteoPrecios : 12000;
-    return { vendidos, ingresos, reserva, precioPromedio };
+    const precioPromedio = conteoPrecios > 0 ? sumaPrecios / conteoPrecios : (PRECIOS_POR_DEFECTO[tipo] || 12000);
+    return { vendidos, ingresos, precioPromedio };
   };
 
   return (
     <span className="min-h-screen bg-[#f8fafc] text-slate-800 font-sans antialiased block">
       <main className="max-w-6xl mx-auto px-4 py-8 space-y-6">
-        
+
         <section className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <header>
             <h2 className="text-2xl font-extrabold tracking-tight text-[#0f172a]">Control de Finanzas Avícolas</h2>
             <p className="text-sm text-slate-500">Monitorea ingresos de ventas y costos de producción por lotes de aves.</p>
           </header>
-          <button 
+          <button
             onClick={() => setIsModalOpen(true)}
-            className="px-4 py-2 bg-primary hover:bg-[#3dbd14] text-black font-bold text-sm rounded-xl shadow-sm  transition-colors cursor-pointer"
+            className="px-4 py-2 bg-primary hover:bg-[#3dbd14] text-black font-bold text-sm rounded-xl shadow-sm transition-colors cursor-pointer"
           >
             + Registrar Operación
           </button>
         </section>
-        
+
         {/* KPI METRICS */}
         <section className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <article className="bg-white p-5 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
@@ -418,24 +426,24 @@ export default function Page() {
           <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Filtrar por fecha:</span>
           <span className="flex gap-2 items-center">
             <span className="text-xs text-slate-400 font-bold">Desde</span>
-            <input 
-              type="date" 
-              value={fechaInicio} 
+            <input
+              type="date"
+              value={fechaInicio}
               onChange={(e) => { setFechaInicio(e.target.value); setPaginaActual(1); }}
               className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20"
             />
           </span>
           <span className="flex gap-2 items-center">
             <span className="text-xs text-slate-400 font-bold">Hasta</span>
-            <input 
-              type="date" 
-              value={fechaFin} 
+            <input
+              type="date"
+              value={fechaFin}
               onChange={(e) => { setFechaFin(e.target.value); setPaginaActual(1); }}
               className="px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20"
             />
           </span>
           {(fechaInicio || fechaFin) && (
-            <button 
+            <button
               onClick={() => { setFechaInicio(""); setFechaFin(""); setPaginaActual(1); }}
               className="text-xs text-rose-500 font-bold hover:underline cursor-pointer"
             >
@@ -444,7 +452,7 @@ export default function Page() {
           )}
         </section>
 
-        {/* CHARTS GRAPHICS WITH 12 MONTHS */}
+        {/* CHARTS GRAPHICS */}
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <article className="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
             <h3 className="text-base font-bold text-slate-900 mb-4">Flujo de Efectivo Mensual</h3>
@@ -466,7 +474,7 @@ export default function Page() {
               <h3 className="text-base font-bold text-slate-900">Distribución de Gastos</h3>
               <p className="text-xs text-slate-400">Calculado dinámicamente desde tus registros</p>
             </header>
-            
+
             <span className="grid grid-cols-2 gap-4 my-auto block">
               <span className="flex flex-col items-center block">
                 <span className="relative w-20 h-20 flex items-center justify-center block">
@@ -478,7 +486,7 @@ export default function Page() {
                 </span>
                 <span className="text-[10px] mt-2 font-bold text-slate-400 uppercase tracking-wider">Alimentos</span>
               </span>
-              
+
               <span className="flex flex-col items-center block">
                 <span className="relative w-20 h-20 flex items-center justify-center block">
                   <svg className="w-full h-full -rotate-90" viewBox="0 0 80 80">
@@ -553,11 +561,11 @@ export default function Page() {
           </span>
         </section>
 
-        {/* REAL DYNAMIC MAIN CLASSIFICATION TABLE */}
+        {/* MAIN CLASSIFICATION TABLE */}
         <section className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm space-y-4">
           <header>
             <h3 className="text-base font-bold text-slate-900">Ingresos de Ventas por Clasificación de Huevos</h3>
-            <p className="text-xs text-slate-400">Detalle exacto de panales vendidos, reserva y total de ingresos calculados desde los registros financieros reales.</p>
+            <p className="text-xs text-slate-400">Detalle exacto de panales vendidos y total de ingresos calculados desde los registros financieros reales.</p>
           </header>
           <span className="overflow-x-auto block">
             <table className="w-full text-left border-collapse">
@@ -565,14 +573,13 @@ export default function Page() {
                 <tr className="bg-slate-50/70 text-[11px] text-slate-400 font-bold uppercase tracking-wider border-b border-slate-100">
                   <th className="px-6 py-3">Clasificación (Tipo)</th>
                   <th className="px-6 py-3 text-center">Panales Vendidos</th>
-                  <th className="px-6 py-3 text-center">Panales en Reserva (Inv.)</th>
-                  <th className="px-6 py-3 text-right">Precio Promedio / Panal</th>
+                  <th className="px-6 py-3 text-right">Precio Panal</th>
                   <th className="px-6 py-3 text-right">Total Ingresos</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 text-sm">
                 {["C", "B", "A", "AA", "AAA", "Jumbo"].map((tipo) => {
-                  const { vendidos, ingresos, reserva, precioPromedio } = calcularMetricasPorClasificacion(tipo);
+                  const { vendidos, ingresos, precioPromedio } = calcularMetricasPorClasificacion(tipo);
 
                   return (
                     <tr key={tipo} className="hover:bg-slate-50/40 transition-colors">
@@ -582,12 +589,7 @@ export default function Page() {
                         </span>
                       </td>
                       <td className="px-6 py-4 text-center font-bold text-slate-800">
-                        {vendidos.toLocaleString("de-DE")}
-                      </td>
-                      <td className="px-6 py-4 text-center font-semibold text-slate-700">
-                        <span className="text-xs bg-amber-50 border border-amber-200 px-2 py-0.5 rounded font-bold text-amber-700">
-                          {reserva} panales
-                        </span>
+                        {vendidos.toLocaleString("de-DE")} pnl
                       </td>
                       <td className="px-6 py-4 text-right font-semibold text-slate-600">
                         ${precioPromedio.toLocaleString("de-DE", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
@@ -607,15 +609,15 @@ export default function Page() {
         <section className="bg-white rounded-2xl border border-slate-100 shadow-sm overflow-hidden">
           <span className="p-6 border-b border-slate-50 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 block">
             <h3 className="text-base font-bold text-slate-900">Historial Financiero</h3>
-            <input 
+            <input
               type="text"
-              className="w-full sm:w-64 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:bg-white transition-all" 
+              className="w-full sm:w-64 px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:bg-white transition-all"
               placeholder="Buscar por concepto, galpón o lote..."
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setPaginaActual(1); }}
             />
           </span>
-          
+
           <span className="overflow-x-auto block">
             <table className="w-full text-left border-collapse">
               <thead>
@@ -659,7 +661,7 @@ export default function Page() {
               </tbody>
             </table>
           </span>
-          
+
           <span className="p-4 bg-slate-50/30 border-t border-slate-100 flex justify-between items-center text-xs text-slate-400 font-semibold block">
             <span>Página {paginaActual} de {totalPaginas}</span>
             <span className="flex gap-1 block">
@@ -676,34 +678,34 @@ export default function Page() {
           <article className="bg-white rounded-2xl border border-slate-100 shadow-xl max-w-2xl w-full overflow-hidden flex flex-col max-h-[90vh]">
             <span className="p-5 border-b border-slate-100 flex justify-between items-center bg-[#f8fafc] block">
               <h3 className="text-base font-bold text-slate-900">Registrar Operación</h3>
-              <button 
+              <button
                 type="button"
                 onClick={() => {
                   setIsModalOpen(false);
                   setNuevaTransaccion(estadoInicialFormulario);
-                }} 
+                }}
                 className="text-slate-400 hover:text-slate-600 font-bold w-6 h-6 flex items-center justify-center bg-slate-100 rounded-full hover:bg-slate-200 transition-colors cursor-pointer"
               >
                 ✕
               </button>
             </span>
-            
+
             <form onSubmit={manejarGuardarRegistro} className="p-6 space-y-4 overflow-y-auto flex-1">
               <span className="block">
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Fecha de la Operación</label>
-                <input 
-                  type="date" 
+                <input
+                  type="date"
                   required
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:bg-white transition-all text-slate-700 font-medium"
                   value={nuevaTransaccion.fecha}
-                  onChange={e => setNuevaTransaccion({...nuevaTransaccion, fecha: e.target.value})}
+                  onChange={e => setNuevaTransaccion({ ...nuevaTransaccion, fecha: e.target.value })}
                 />
               </span>
 
               <span className="block">
                 <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Concepto de la Operación</label>
-                <input 
-                  type="text" 
+                <input
+                  type="text"
                   required
                   className="w-full px-4 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:bg-white transition-all text-slate-700 font-medium"
                   placeholder={nuevaTransaccion.tipo === "Ingreso" ? "Ej. Venta Multi-Clasificada" : "Ej. Compra Purina Inicial"}
@@ -724,18 +726,18 @@ export default function Page() {
               <span className="grid grid-cols-2 gap-4 block">
                 <span className="block">
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Tipo</label>
-                  <select 
+                  <select
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:bg-white"
                     value={nuevaTransaccion.tipo}
                     onChange={e => {
                       const tipo = e.target.value;
                       setNuevaTransaccion(prev => ({
-                        ...prev, 
-                        tipo, 
+                        ...prev,
+                        tipo,
                         categoria: tipo === "Ingreso" ? "Venta de Huevos" : "Alimentos",
                         monto: "",
                         panalesVendidos: "",
-                        precioPorPanal: "12000",
+                        precioPorPanal: "10500",
                         cantidadInsumo: "",
                         precioUnitarioInsumo: "",
                         esMultiClasificada: false,
@@ -750,10 +752,10 @@ export default function Page() {
                 </span>
                 <span className="block">
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Galpón Relacionado</label>
-                  <select 
+                  <select
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:bg-white"
                     value={nuevaTransaccion.galpon}
-                    onChange={e => setNuevaTransaccion({...nuevaTransaccion, galpon: e.target.value})}
+                    onChange={e => setNuevaTransaccion({ ...nuevaTransaccion, galpon: e.target.value })}
                   >
                     <option value="Galpón 1">Galpón 1</option>
                     <option value="Galpón 2">Galpón 2</option>
@@ -766,10 +768,10 @@ export default function Page() {
               {nuevaTransaccion.tipo === "Gasto" && (
                 <span className="block">
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Categoría de Gasto</label>
-                  <select 
+                  <select
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 focus:bg-white"
                     value={nuevaTransaccion.categoria}
-                    onChange={e => setNuevaTransaccion({...nuevaTransaccion, categoria: e.target.value, detalleVeterinario: ""})}
+                    onChange={e => setNuevaTransaccion({ ...nuevaTransaccion, categoria: e.target.value, detalleVeterinario: "" })}
                   >
                     <option value="Alimentos">Alimentos</option>
                     <option value="Salud/Vet">Salud</option>
@@ -781,7 +783,7 @@ export default function Page() {
               {nuevaTransaccion.tipo === "Ingreso" && (
                 <fieldset className="border border-blue-100 bg-blue-50/30 p-4 rounded-2xl space-y-3">
                   <legend className="text-xs font-bold text-blue-600 px-2 uppercase tracking-wider">Detalles de Venta (Ingresos)</legend>
-                  
+
                   {nuevaTransaccion.esMultiClasificada ? (
                     <span className="space-y-3 block">
                       <span className="overflow-x-auto rounded-xl border border-slate-100 bg-white shadow-sm block">
@@ -789,8 +791,7 @@ export default function Page() {
                           <thead className="bg-slate-50 text-slate-500 font-bold uppercase tracking-wider">
                             <tr>
                               <th className="px-3 py-2.5">Clasificación</th>
-                              <th className="px-3 py-2.5">Producción</th>
-                              <th className="px-3 py-2.5">En Reserva</th>
+                              <th className="px-3 py-2.5">Panales</th>
                               <th className="px-3 py-2.5">Precio Panal</th>
                               <th className="px-3 py-2.5 text-right">Subtotal</th>
                             </tr>
@@ -799,23 +800,12 @@ export default function Page() {
                             {nuevaTransaccion.desgloseInventario.map((item) => (
                               <tr key={item.clasificacion} className="hover:bg-slate-50/50 transition-colors">
                                 <td className="px-3 py-2.5 font-bold text-slate-700">Tipo {item.clasificacion}</td>
-                                <td className="px-3 py-2.5">
-                                  <span className="block text-slate-800">{item.unidades} uds</span>
-                                  <span className="text-[10px] text-green-600 font-semibold block">
-                                    {item.panales > 0 ? `${item.panales} pnl ` : ''}
-                                    {item.unidadesSueltas > 0 ? `y ${item.unidadesSueltas} uds` : ''}
-                                  </span>
-                                </td>
-                                <td className="px-3 py-2.5">
-                                  <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                                    {item.enReserva} pnl
-                                  </span>
-                                </td>
+                                <td className="px-3 py-2.5 font-bold text-slate-800">{item.panales} pnl</td>
                                 <td className="px-3 py-2.5 font-semibold text-slate-500">
                                   ${item.precioPanal.toLocaleString('de-DE')}
                                 </td>
                                 <td className="px-3 py-2.5 text-right font-bold text-slate-700">
-                                  ${(item.panales * item.precioPanal).toLocaleString('de-DE')}
+                                  ${item.subtotal.toLocaleString('de-DE')}
                                 </td>
                               </tr>
                             ))}
@@ -827,33 +817,42 @@ export default function Page() {
                     <span className="grid grid-cols-1 sm:grid-cols-3 gap-4 block">
                       <span className="flex flex-col gap-1 block">
                         <label className="text-xs font-bold text-slate-500 uppercase">Clasificación</label>
-                        <select 
+                        <select
                           className="p-2.5 border border-slate-200 rounded-xl bg-white text-slate-700 text-sm"
                           value={nuevaTransaccion.tipoHuevos}
-                          onChange={e => setNuevaTransaccion({...nuevaTransaccion, tipoHuevos: e.target.value})}
+                          onChange={e => {
+                            const tipoSel = e.target.value;
+                            const nuevoPrecio = PRECIOS_POR_DEFECTO[tipoSel] || 12000;
+                            setNuevaTransaccion(prev => ({
+                              ...prev,
+                              tipoHuevos: tipoSel,
+                              precioPorPanal: nuevoPrecio.toString(),
+                              monto: Math.round((parseFloat(prev.panalesVendidos) || 0) * nuevoPrecio)
+                            }));
+                          }}
                         >
-                          <option value="C">C</option>
-                          <option value="B">B</option>
-                          <option value="A">A</option>
-                          <option value="AA">AA</option>
-                          <option value="AAA">AAA</option>
-                          <option value="Jumbo">Jumbo</option>
+                          <option value="C">C ($10.500)</option>
+                          <option value="B">B ($12.000)</option>
+                          <option value="A">A ($13.500)</option>
+                          <option value="AA">AA ($15.000)</option>
+                          <option value="AAA">AAA ($16.500)</option>
+                          <option value="Jumbo">Jumbo ($18.000)</option>
                         </select>
                       </span>
                       <span className="flex flex-col gap-1 block">
                         <label className="text-xs font-bold text-slate-500 uppercase">Precio por Panal ($)</label>
-                        <input 
-                          type="text" 
+                        <input
+                          type="text"
                           disabled
-                          className="p-2.5 border border-slate-200 rounded-xl bg-slate-100 text-sm font-semibold cursor-not-allowed text-slate-500" 
+                          className="p-2.5 border border-slate-200 rounded-xl bg-slate-100 text-sm font-semibold cursor-not-allowed text-slate-500"
                           value={formatConPuntos(nuevaTransaccion.precioPorPanal)}
                         />
                       </span>
                       <span className="flex flex-col gap-1 block">
                         <label className="text-xs font-bold text-slate-500 uppercase">Panales Vendidos</label>
-                        <input 
-                          type="text" 
-                          className="p-2.5 border border-slate-200 rounded-xl bg-white text-sm" 
+                        <input
+                          type="text"
+                          className="p-2.5 border border-slate-200 rounded-xl bg-white text-sm"
                           placeholder="0"
                           value={formatConPuntos(nuevaTransaccion.panalesVendidos)}
                           onChange={e => manejarCambioVenta("panalesVendidos", e.target.value)}
@@ -864,7 +863,7 @@ export default function Page() {
 
                   <span className="pt-2 flex flex-col gap-2 block">
                     <label className="flex items-center gap-2 cursor-pointer select-none">
-                      <input 
+                      <input
                         type="checkbox"
                         checked={nuevaTransaccion.asociarGastoInmediato}
                         onChange={e => manejarToggleGastoAsociado(e.target.checked)}
@@ -877,20 +876,20 @@ export default function Page() {
                       <span className="p-3 bg-white border border-amber-200 rounded-xl space-y-2 block">
                         <span className="block">
                           <label className="block text-[9px] font-bold text-amber-600 uppercase">Concepto de Gasto Asociado</label>
-                          <input 
+                          <input
                             type="text"
                             className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs text-slate-700"
                             value={nuevaTransaccion.conceptoGastoAsociado}
-                            onChange={e => setNuevaTransaccion({...nuevaTransaccion, conceptoGastoAsociado: e.target.value})}
+                            onChange={e => setNuevaTransaccion({ ...nuevaTransaccion, conceptoGastoAsociado: e.target.value })}
                           />
                         </span>
                         <span className="block">
                           <label className="block text-[9px] font-bold text-amber-600 uppercase">Monto Gasto ($)</label>
-                          <input 
+                          <input
                             type="text"
                             className="w-full px-2 py-1 bg-slate-50 border border-slate-200 rounded text-xs font-bold text-slate-700"
                             value={formatConPuntos(nuevaTransaccion.montoGastoAsociado)}
-                            onChange={e => setNuevaTransaccion({...nuevaTransaccion, montoGastoAsociado: limpiarNumero(e.target.value)})}
+                            onChange={e => setNuevaTransaccion({ ...nuevaTransaccion, montoGastoAsociado: limpiarNumero(e.target.value) })}
                           />
                         </span>
                       </span>
@@ -905,20 +904,20 @@ export default function Page() {
                   <span className="grid grid-cols-2 gap-3 block">
                     <span className="block">
                       <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Cantidad</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         placeholder="0"
-                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700" 
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700"
                         value={formatConPuntos(nuevaTransaccion.cantidadInsumo)}
                         onChange={e => manejarCambioGasto("cantidadInsumo", e.target.value)}
                       />
                     </span>
                     <span className="block">
                       <label className="block text-[10px] font-bold text-slate-500 mb-0.5">Precio Unitario ($)</label>
-                      <input 
-                        type="text" 
+                      <input
+                        type="text"
                         placeholder="0"
-                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700" 
+                        className="w-full px-3 py-1.5 bg-white border border-slate-200 rounded-lg text-sm font-semibold text-slate-700"
                         value={formatConPuntos(nuevaTransaccion.precioUnitarioInsumo)}
                         onChange={e => manejarCambioGasto("precioUnitarioInsumo", e.target.value)}
                       />
@@ -930,21 +929,21 @@ export default function Page() {
               <span className="grid grid-cols-2 gap-4 block">
                 <span className="block">
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Monto Total ($)</label>
-                  <input 
-                    type="text" 
+                  <input
+                    type="text"
                     disabled
                     className="w-full px-4 py-2 bg-slate-100 border border-slate-200 rounded-xl text-sm font-extrabold cursor-not-allowed text-slate-800"
                     placeholder="0"
                     value={formatConPuntos(nuevaTransaccion.monto)}
                   />
                 </span>
-                
+
                 <span className="block">
                   <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">Estado de la Op.</label>
-                  <select 
+                  <select
                     className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#39A900]/20 text-slate-700"
                     value={nuevaTransaccion.estado}
-                    onChange={e => setNuevaTransaccion({...nuevaTransaccion, estado: e.target.value})}
+                    onChange={e => setNuevaTransaccion({ ...nuevaTransaccion, estado: e.target.value })}
                   >
                     <option value="Completado">Completado</option>
                     <option value="Pendiente">Pendiente</option>
@@ -953,18 +952,18 @@ export default function Page() {
               </span>
 
               <footer className="pt-4 flex gap-2 justify-end border-t border-slate-100">
-                <button 
-                  type="button" 
+                <button
+                  type="button"
                   onClick={() => {
                     setIsModalOpen(false);
                     setNuevaTransaccion(estadoInicialFormulario);
-                  }} 
+                  }}
                   className="px-5 py-2.5 border border-slate-200 font-bold text-sm text-slate-600 rounded-xl hover:bg-slate-50 transition-colors cursor-pointer"
                 >
                   Cancelar
                 </button>
-                <button 
-                  type="submit" 
+                <button
+                  type="submit"
                   className="px-5 py-2.5 bg-[#39A900] text-white font-bold text-sm rounded-xl hover:bg-[#329300] hover:shadow-md transition-all cursor-pointer"
                 >
                   Guardar Registro
