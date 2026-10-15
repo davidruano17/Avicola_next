@@ -80,7 +80,7 @@ export default function Page() {
             <span className="bg-green-100 text-green-600 text-xs font-bold px-2 py-1 rounded-lg">+12%</span>
           </div>
         </div>
-
+        
         <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
           <div className="flex justify-between items-start">
             <div>

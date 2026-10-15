@@ -14,7 +14,8 @@ import {
   User,
   Settings,
   LogOut,
-  ChevronRight
+  ChevronRight,
+  MessageCircle
 } from 'lucide-react';
 
 const logoSena = '/assets/images/logo-sena-verde-complementario-svg-2022.svg';
@@ -84,10 +85,14 @@ export default function DashboardLayout({ children }) {
     '/profile': 'Mi Perfil',
     '/notificaciones': 'Notificaciones',
     '/configuracion': 'Configuración',
-    '/lotes': 'Administrar lotes',
+    '/lotes': 'Administrar lotes de aves',
     '/dashboard': 'Inicio',
     '/finanzas': 'Finanzas',
+    '/chatbox': 'Asistente Virtual Avícola',
+
   };
+  const pageDescriptions = {};
+  const shouldShowPageHeader = pathname !== '/chatbox';
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [openDropdown, setOpenDropdown] = useState(null);
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -192,7 +197,7 @@ export default function DashboardLayout({ children }) {
             )}
             <NavLink to="/lotes" className={({ isActive }) => `flex items-center h-12 rounded-lg text-slate-600 dark:text-[#becbb3] hover:bg-[#f1f5f9] dark:hover:bg-[#162035] hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full cursor-pointer box-border no-underline ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-4'} ${isActive ? 'bg-[#f1f5f9] dark:bg-[#162035] text-[#49e619] dark:text-white' : ''}`}>
               <Users className="w-5 h-5 shrink-0" />
-              <span className={`transition-opacity duration-200 whitespace-nowrap ${isSidebarCollapsed ? 'hidden' : 'block'}`}>Administrar lotes</span>
+              <span className={`transition-opacity duration-200 whitespace-nowrap ${isSidebarCollapsed ? 'hidden' : 'block'}`}>Lotes de aves</span>
             </NavLink>
 
             <section className="dropdown-container">
@@ -231,6 +236,11 @@ export default function DashboardLayout({ children }) {
               <Bell className="w-5 h-5 shrink-0" />
               <span className={`transition-opacity duration-200 whitespace-nowrap ${isSidebarCollapsed ? 'hidden' : 'block'}`}>Notificaciones</span>
             </NavLink>
+            <NavLink to="/chatbox" className={({ isActive }) => `flex items-center h-12 rounded-lg text-slate-600 dark:text-[#becbb3] hover:bg-[#f1f5f9] dark:hover:bg-[#162035] hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full cursor-pointer box-border no-underline ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-4'} ${isActive ? 'bg-[#f1f5f9] dark:bg-[#162035] text-[#49e619] dark:text-white' : ''}`}>
+              <MessageCircle className="w-5 h-5 shrink-0" />
+              <span className={`transition-opacity duration-200 whitespace-nowrap ${isSidebarCollapsed ? 'hidden' : 'block'}`}>Asistente Avícola</span>
+            </NavLink>
+
           </nav>
         </section>
         <footer className="sidebar-footer">
@@ -241,7 +251,18 @@ export default function DashboardLayout({ children }) {
       {/* MAIN CONTENT WRAPPER */}
       <main className="flex-1 flex flex-col min-w-0 bg-[#f6f8f6] dark:bg-[#070a14] overflow-hidden">
         <header className="flex items-center justify-between py-4 px-8 bg-white dark:bg-[#0d121e] border-b border-slate-200 dark:border-[#1c2a44] sticky top-0 z-30 shadow-sm">
-          <h2 className="text-xl font-bold text-slate-900 dark:text-[#eff1f5]">{pageTitles[pathname] || 'Dashboard'}</h2>
+          {shouldShowPageHeader ? (
+            <div className="min-w-0">
+              <h2 className="text-xl font-bold text-slate-900 dark:text-[#eff1f5]">{pageTitles[pathname] || 'Dashboard'}</h2>
+              {pageDescriptions[pathname] && (
+                <p className="mt-1 max-w-2xl text-xs leading-relaxed text-slate-500 dark:text-slate-400 sm:text-sm">
+                  {pageDescriptions[pathname]}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="min-w-0" />
+          )}
           <article className="user-meta relative">
             <section className="user-details flex items-center gap-3">
               <div className="text-right hidden sm:block">
