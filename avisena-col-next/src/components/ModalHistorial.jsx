@@ -64,6 +64,7 @@ const ModalHistorial = ({
               <tr>
                 <th className="px-6 py-4">Fecha / Edad</th>
                 <th className="px-6 py-4">Galpón</th>
+                <th className="px-6 py-4">Semana de producción</th>
                 <th className="px-6 py-4 text-center">Huevos</th>
                 <th className="px-6 py-4 text-center">Alimento (KG)</th>
                 <th className="px-6 py-4 text-right">Acciones</th>
@@ -84,6 +85,9 @@ const ModalHistorial = ({
                   </td>
                   <td className="px-6 py-4 text-sm font-semibold text-slate-500 dark:text-slate-400">
                     {item.galpon}
+                  </td>
+                  <td className="px-6 py-4 text-sm font-semibold text-slate-500 dark:text-slate-400">
+                    {item.semanaProduccion ? `Semana ${item.semanaProduccion}` : "—"}
                   </td>
                   <td className="px-6 py-4 text-center text-sm font-black text-slate-800 dark:text-slate-200">
                     {item.huevos.toLocaleString()}

@@ -10,6 +10,42 @@ const normalizarGalpon = (galpon) => String(galpon || "")
   .trim()
   .toLowerCase();
 
+const convertirFechaADiaUtc = (fecha) => {
+  const partes = String(fecha || "").slice(0, 10).split("-").map(Number);
+  if (partes.length !== 3 || partes.some((parte) => !Number.isInteger(parte))) return null;
+
+  const [anio, mes, dia] = partes;
+  const fechaUtc = Date.UTC(anio, mes - 1, dia);
+  const fechaValidada = new Date(fechaUtc);
+  if (
+    fechaValidada.getUTCFullYear() !== anio
+    || fechaValidada.getUTCMonth() !== mes - 1
+    || fechaValidada.getUTCDate() !== dia
+  ) return null;
+
+  return fechaUtc / 86400000;
+};
+
+const calcularEtapaGalpon = (registro, fecha) => {
+  const semanaIngresoTexto = String(registro?.semanadevida ?? "").trim();
+  const semanaIngreso = Number(semanaIngresoTexto);
+  const diaIngreso = convertirFechaADiaUtc(registro?.fecha);
+  const diaConsulta = convertirFechaADiaUtc(fecha);
+
+  if (!semanaIngresoTexto || !Number.isFinite(semanaIngreso) || semanaIngreso < 0 || diaIngreso === null || diaConsulta === null) {
+    return null;
+  }
+  if (diaConsulta < diaIngreso) return { fechaAnteriorAlIngreso: true };
+
+  const semanaVidaExacta = semanaIngreso + (diaConsulta - diaIngreso) / 7;
+  const semanaVida = Math.floor(semanaVidaExacta);
+
+  return {
+    semanaVida,
+    semanaProduccion: semanaVidaExacta >= 17 ? semanaVida - 16 : null,
+  };
+};
+
 const DashboardProduccion = () => {
 
   /* ─── FECHA Y MES ─── */
@@ -143,6 +179,12 @@ const DashboardProduccion = () => {
     return Array.from(lineas.values());
   };
   const lineasGeneticasDisponibles = obtenerLineasGeneticas(galponOrigen);
+  const registroGalponSeleccionado = registrosGalpones.find((registro) =>
+    normalizarGalpon(registro?.galpon || registro?.lote) === normalizarGalpon(galponOrigen)
+  );
+  const etapaGalponSeleccionado = calcularEtapaGalpon(registroGalponSeleccionado, fechaRecoleccion);
+  const edadAutomatica = etapaGalponSeleccionado?.semanaVida;
+  const semanaProduccionAutomatica = etapaGalponSeleccionado?.semanaProduccion;
 
   useEffect(() => {
     if (!isModalRecoleccionOpen) return;
@@ -310,7 +352,13 @@ const DashboardProduccion = () => {
     e.preventDefault();
 
     const nombreTrimmed = nombreTrabajador.trim();
-    const edadTrimmed = edadSemanasRecoleccion.trim();
+    if (etapaGalponSeleccionado?.fechaAnteriorAlIngreso) {
+      alert("La fecha de recolección no puede ser anterior a la fecha de ingreso del galpón.");
+      return;
+    }
+    const edadTrimmed = edadAutomatica === undefined
+      ? edadSemanasRecoleccion.trim()
+      : String(edadAutomatica);
 
     if (!nombreTrimmed) { alert("El nombre del trabajador no puede estar vacío."); return; }
     if (!edadTrimmed) { alert("La edad en semanas es obligatoria."); return; }
@@ -322,6 +370,7 @@ const DashboardProduccion = () => {
       jornada,
       lineaGenetica,
       edadSemanas: edadTrimmed,
+      semanaProduccion: semanaProduccionAutomatica ?? null,
       trabajador: nombreTrimmed,
       huevosBuenos: Number(huevosBuenos || 0),
       huevosRotos: Number(huevosRotosInput || 0),
@@ -349,6 +398,7 @@ const DashboardProduccion = () => {
               ...h,
               fecha: produccion.fecha,
               edad: `${produccion.edadSemanas} Semanas`,
+              semanaProduccion: produccion.semanaProduccion,
               galpon: produccion.galpon,
               huevos: produccion.huevosBuenos + produccion.huevosRotos + produccion.descarte,
               trabajador: produccion.trabajador,
@@ -377,6 +427,7 @@ const DashboardProduccion = () => {
         id: newId,
         fecha: produccion.fecha,
         edad: `${produccion.edadSemanas} Semanas`,
+        semanaProduccion: produccion.semanaProduccion,
         galpon: produccion.galpon,
         huevos: produccion.huevosBuenos + produccion.huevosRotos + produccion.descarte,
         alimento: 0,
@@ -500,10 +551,10 @@ const DashboardProduccion = () => {
 
   const handleExportHistorial = () => {
     if (!historial?.length) return;
-    const headers = ["fecha", "hora", "jornada", "edad", "galpon", "lineaGenetica",
+    const headers = ["fecha", "hora", "jornada", "edad", "semanaProduccion", "galpon", "lineaGenetica",
       "trabajador", "huevosBuenos", "huevosRotos", "descarte", "notas", "huevos", "alimento"];
     const rows = historial.map(h => [
-      h.fecha, h.hora || "", h.jornada || "", h.edad, h.galpon, h.lineaGenetica || "",
+      h.fecha, h.hora || "", h.jornada || "", h.edad, h.semanaProduccion ?? "", h.galpon, h.lineaGenetica || "",
       h.trabajador || "", h.huevosBuenos || 0, h.huevosRotos || 0,
       h.descarte || 0, h.notas || "", h.huevos, h.alimento || 0,
     ]);
@@ -709,9 +760,9 @@ const DashboardProduccion = () => {
                 <thead className="bg-[#fcfdfd] dark:bg-zinc-900/80 text-slate-400 text-[10px]
                                   font-extrabold uppercase tracking-widest border-b border-slate-50 dark:border-zinc-800">
                   <tr>
-                    {["Fecha", "Hora", "Jornada", "Galpón", "Línea", "Edad", "Buenos", "Rotos", "Descarte", "Trabajador", "Acciones"]
+                    {["Fecha", "Hora", "Jornada", "Galpón", "Línea", "Edad", "Semana producción", "Buenos", "Rotos", "Descarte", "Trabajador", "Acciones"]
                       .map((h, i) => (
-                        <th key={h} className={`px-4 py-4${i === 10 ? " text-right" : ""}`}>{h}</th>
+                        <th key={h} className={`px-4 py-4${i === 11 ? " text-right" : ""}`}>{h}</th>
                       ))}
                   </tr>
                 </thead>
@@ -729,6 +780,7 @@ const DashboardProduccion = () => {
                         <td className="px-4 py-4 text-sm font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">{item.galpon}</td>
                         <td className="px-4 py-4 text-sm font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">{item.lineaGenetica || "-"}</td>
                         <td className="px-4 py-4 text-sm font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">{item.edadSemanas} Sem.</td>
+                        <td className="px-4 py-4 text-sm font-semibold text-slate-600 dark:text-slate-300 whitespace-nowrap">{item.semanaProduccion ? `Semana ${item.semanaProduccion}` : "—"}</td>
                         <td className="px-4 py-4 text-sm font-bold text-slate-800 dark:text-slate-100">{item.huevosBuenos}</td>
                         <td className="px-4 py-4 text-sm font-bold text-slate-800 dark:text-slate-100">{item.huevosRotos}</td>
                         <td className="px-4 py-4 text-sm font-semibold text-slate-600 dark:text-slate-300">{item.descarte}</td>
@@ -1147,11 +1199,27 @@ const DashboardProduccion = () => {
                     required className={inputCls} />
                 </label>
                 <label className="flex flex-col text-xs font-bold text-slate-500 uppercase">
-                  Edad en Semanas *
+                  Edad en Semanas de Vida *
                   <input type="text" inputMode="numeric" placeholder="ej. 22"
-                    value={edadSemanasRecoleccion}
+                    value={etapaGalponSeleccionado?.fechaAnteriorAlIngreso
+                      ? ""
+                      : edadAutomatica ?? edadSemanasRecoleccion}
+                    readOnly={edadAutomatica !== undefined}
                     onChange={e => setEdadSemanasRecoleccion(e.target.value.replace(/[^\d]/g, ""))}
                     required className={inputCls} />
+                </label>
+                <label className="flex flex-col text-xs font-bold text-slate-500 uppercase sm:col-span-2">
+                  Semana de Producción
+                  <input type="text"
+                    value={etapaGalponSeleccionado?.fechaAnteriorAlIngreso
+                      ? "Fecha anterior al ingreso"
+                      : semanaProduccionAutomatica
+                        ? `Semana ${semanaProduccionAutomatica}`
+                        : registroGalponSeleccionado
+                          ? "Aún no inicia"
+                          : "Sin datos del galpón"}
+                    readOnly
+                    className={`${inputCls} bg-slate-50 dark:bg-zinc-800`} />
                 </label>
               </div>
 
@@ -1168,6 +1236,7 @@ const DashboardProduccion = () => {
                   <select value={galponOrigen}
                     onChange={e => {
                       setGalponOrigen(e.target.value);
+                      setEdadSemanasRecoleccion("");
                       const lineas = obtenerLineasGeneticas(e.target.value);
                       setLineaGenetica(lineas.length === 1 ? lineas[0] : "");
                     }}
