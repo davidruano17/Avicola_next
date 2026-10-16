@@ -1,6 +1,14 @@
 import { useState, useEffect } from 'react';
 import { X, PlusCircle, Save, UploadCloud } from 'lucide-react';
 
+const nombresPerfilPorUsuario = {
+  admin: 'Instructor Líder (Admin)',
+  aprendiz: 'Aprendiz Sena',
+  investigador: 'Instructor Investigador',
+};
+
+const LINEAS_AVE = ['Hy-line brown', 'isa brown', 'Lohmann brown', 'Babcock', 'Dekalb'];
+
 const PESOS_REFERENCIA = {
   'hy-line brown': [70, 125, 190, 265, 360, 460, 560, 670, 780, 890, 990, 1080, 1160, 1230, 1300, 1370, 1440],
   'lohmann brown': [75, 130, 195, 273, 366, 469, 573, 677, 777, 873, 963, 1047, 1128, 1205, 1279, 1351, 1421, 1493],
@@ -73,6 +81,13 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
     },
     observaciones: initialData?.observaciones || '',
   }));
+  const [lineaOption, setLineaOption] = useState(() => {
+    if (!initialData?.linea) return '';
+    return LINEAS_AVE.includes(initialData.linea) ? initialData.linea : 'otro';
+  });
+  const [otraLinea, setOtraLinea] = useState(() => (
+    initialData?.linea && !LINEAS_AVE.includes(initialData.linea) ? initialData.linea : ''
+  ));
   const [loteOption, setLoteOption] = useState(() => {
     if (!initialData?.galpon) return '';
     return ['1', '2'].includes(initialData.galpon) ? initialData.galpon : 'otro';
@@ -132,6 +147,17 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
       observaciones: initialData.observaciones || '',
     });
 
+    if (LINEAS_AVE.includes(initialData.linea)) {
+      setLineaOption(initialData.linea);
+      setOtraLinea('');
+    } else if (initialData.linea) {
+      setLineaOption('otro');
+      setOtraLinea(initialData.linea);
+    } else {
+      setLineaOption('');
+      setOtraLinea('');
+    }
+
     if (['1', '2'].includes(initialData.galpon)) {
       setLoteOption(initialData.galpon);
       setOtroGalpon('');
@@ -155,6 +181,13 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
     }
 
     setFormData({ ...formData, galpon: value });
+  };
+
+  const handleLineaChange = (e) => {
+    const value = e.target.value;
+    setLineaOption(value);
+    setOtraLinea('');
+    setFormData((prev) => ({ ...prev, linea: value === 'otro' ? '' : value }));
   };
 
   const handleFileChange = (e) => {
@@ -244,7 +277,23 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
                   <option value="">Seleccionar galpón...</option>
                   <option value="1">1</option>
                   <option value="2">2</option>
+                  <option value="otro">Otro</option>
                 </select>
+                {loteOption === 'otro' && (
+                  <input
+                    id="otro-galpon"
+                    type="text"
+                    required
+                    className="w-full mt-2 bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
+                    placeholder="Escribe el número del galpón"
+                    value={otroGalpon}
+                    onChange={(e) => {
+                      const galpon = e.target.value;
+                      setOtroGalpon(galpon);
+                      setFormData((prev) => ({ ...prev, galpon }));
+                    }}
+                  />
+                )}
 
               </div>
             </div>
@@ -298,8 +347,8 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
                   id="linea"
                   className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
                   required
-                  value={formData.linea}
-                  onChange={(e) => setFormData({ ...formData, linea: e.target.value })}
+                  value={lineaOption}
+                  onChange={handleLineaChange}
                 >
                   <option value="">Seleccionar línea...</option>
                   <option value="Hy-line brown">Hy-line brown</option>
@@ -307,7 +356,23 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
                   <option value="Lohmann brown">Lohmann brown</option>
                   <option value="Babcock">Babcock</option>
                   <option value="Dekalb">Dekalb</option>
+                  <option value="otro">Otro</option>
                 </select>
+                {lineaOption === 'otro' && (
+                  <input
+                    id="otra-linea"
+                    type="text"
+                    required
+                    className="w-full mt-2 bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
+                    placeholder="Escribe el tipo de línea de aves"
+                    value={otraLinea}
+                    onChange={(e) => {
+                      const linea = e.target.value;
+                      setOtraLinea(linea);
+                      setFormData((prev) => ({ ...prev, linea }));
+                    }}
+                  />
+                )}
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Responsable</label>
