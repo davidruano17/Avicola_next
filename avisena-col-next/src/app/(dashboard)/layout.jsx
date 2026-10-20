@@ -15,7 +15,10 @@ import {
   Settings,
   LogOut,
   ChevronRight,
-  MessageCircle
+  MessageCircle,
+  FilePenLine,
+  House,
+  ChartNoAxesCombined
 } from 'lucide-react';
 
 const logoSena = '/assets/images/logo-sena-verde-complementario-svg-2022.svg';
@@ -185,7 +188,7 @@ export default function DashboardLayout({ children }) {
 
           <nav className="flex flex-col gap-1">
             <NavLink to="/dashboard" className={({ isActive }) => `flex items-center h-12 rounded-lg text-slate-600 dark:text-[#becbb3] hover:bg-[#f1f5f9] dark:hover:bg-[#162035] hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full cursor-pointer box-border no-underline ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-4'} ${isActive ? 'bg-[#f1f5f9] dark:bg-[#162035] text-[#49e619] dark:text-white' : ''}`}>
-              <Users className="w-5 h-5 shrink-0" />
+              <House className="w-5 h-5 shrink-0" />
               <span className={`transition-opacity duration-200 whitespace-nowrap ${isSidebarCollapsed ? 'hidden' : 'block'}`}>Inicio</span>
             </NavLink>
 
@@ -196,7 +199,7 @@ export default function DashboardLayout({ children }) {
             </NavLink>
             )}
             <NavLink to="/lotes" className={({ isActive }) => `flex items-center h-12 rounded-lg text-slate-600 dark:text-[#becbb3] hover:bg-[#f1f5f9] dark:hover:bg-[#162035] hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full cursor-pointer box-border no-underline ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-4'} ${isActive ? 'bg-[#f1f5f9] dark:bg-[#162035] text-[#49e619] dark:text-white' : ''}`}>
-              <Users className="w-5 h-5 shrink-0" />
+              <FilePenLine className="w-5 h-5 shrink-0" />
               <span className={`transition-opacity duration-200 whitespace-nowrap ${isSidebarCollapsed ? 'hidden' : 'block'}`}>Lotes de aves</span>
             </NavLink>
 
@@ -227,7 +230,7 @@ export default function DashboardLayout({ children }) {
             </NavLink>
             {role === "admin" && (
             <NavLink to="/finanzas" className={({ isActive }) => `flex items-center h-12 rounded-lg text-slate-600 dark:text-[#becbb3] hover:bg-[#f1f5f9] dark:hover:bg-[#162035] hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full cursor-pointer box-border no-underline ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-4'} ${isActive ? 'bg-[#f1f5f9] dark:bg-[#162035] text-[#49e619] dark:text-white' : ''}`}>
-              <FileText className="w-5 h-5 shrink-0" />
+              <ChartNoAxesCombined className="w-5 h-5 shrink-0" />
               <span className={`transition-opacity duration-200 whitespace-nowrap ${isSidebarCollapsed ? 'hidden' : 'block'}`}>Finanzas</span>
             </NavLink>
             )}

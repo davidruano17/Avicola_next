@@ -10,10 +10,8 @@ export default function Page() {
       role: 'Instructor Líder',
       avatar: 'https://ui-avatars.com/api/?name=Instructor+Lider&background=5be830&color=fff',
       tel: '+57 310 123 4567',
-      fecha: '1985-06-15',
-      sexo: 'Masculino',
-      ciudad: 'Bucaramanga',
-      barrio: 'Vereda La Esperanza'
+      residencia: 'Bucaramanga',
+      
     },
     aprendiz: {
       name: 'Aprendiz Sena',
@@ -21,10 +19,8 @@ export default function Page() {
       role: 'Aprendiz de Contrato',
       avatar: 'https://ui-avatars.com/api/?name=Aprendiz+Sena&background=0284c7&color=fff',
       tel: '+57 300 987 6543',
-      fecha: '2001-08-20',
-      sexo: 'Femenino',
-      ciudad: 'Floridablanca',
-      barrio: 'Barrio El Carmen'
+      residencia: 'Floridablanca',
+      
     },
     investigador: {
       name: 'Instructor Investigador',
@@ -32,10 +28,7 @@ export default function Page() {
       role: 'Instructor Investigador',
       avatar: 'https://ui-avatars.com/api/?name=Instructor+Investigador&background=f59e0b&color=fff',
       tel: '+57 320 456 7890',
-      fecha: '1978-11-05',
-      sexo: 'Masculino',
-      ciudad: 'Girón',
-      barrio: 'Vereda Carrizal'
+      residencia: 'Girón',
     }
   };
 
@@ -46,7 +39,10 @@ export default function Page() {
     const saved = localStorage.getItem(`user_profile_${userId}`);
     if (saved) {
       try {
-        setProfile(JSON.parse(saved));
+        setProfile({
+          ...(defaultProfiles[userId] || defaultProfiles.admin),
+          ...JSON.parse(saved)
+        });
         return;
       } catch (e) {
         console.error(e);
@@ -238,53 +234,14 @@ export default function Page() {
               />
             </p>
             <p className="flex flex-col gap-1.5 m-0">
-              <label htmlFor="in-fecha" className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
-                Fecha de Nacimiento
+              <label htmlFor="in-residencia" className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
+                Residencia
               </label>
               <input
-                id="in-fecha"
-                type="date"
-                value={formData.fecha}
-                onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 dark:border-zinc-700 bg-transparent p-3 text-sm focus:border-[#5be830] focus:ring-1 focus:ring-[#5be830] outline-none dark:text-slate-100 disabled:bg-slate-50 dark:disabled:bg-zinc-800/50 dark:disabled:text-slate-500"
-              />
-            </p>
-            <p className="flex flex-col gap-1.5 m-0">
-              <label htmlFor="in-sexo" className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
-                Sexo (Opcional)
-              </label>
-              <select
-                id="in-sexo"
-                value={formData.sexo}
-                onChange={(e) => setFormData({ ...formData, sexo: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 dark:border-zinc-700 bg-transparent p-3 text-sm focus:border-[#5be830] focus:ring-1 focus:ring-[#5be830] outline-none dark:text-slate-100 disabled:bg-slate-50 dark:disabled:bg-zinc-800/50 dark:disabled:text-slate-500"
-              >
-                <option value="Masculino">Masculino</option>
-                <option value="Femenino">Femenino</option>
-                <option value="Otro">Otro</option>
-              </select>
-            </p>
-            <p className="flex flex-col gap-1.5 m-0">
-              <label htmlFor="in-ciudad" className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
-                Ciudad
-              </label>
-              <input
-                id="in-ciudad"
+                id="in-residencia"
                 type="text"
-                value={formData.ciudad}
-                onChange={(e) => setFormData({ ...formData, ciudad: e.target.value })}
-                className="w-full rounded-xl border border-slate-200 dark:border-zinc-700 bg-transparent p-3 text-sm focus:border-[#5be830] focus:ring-1 focus:ring-[#5be830] outline-none dark:text-slate-100 disabled:bg-slate-50 dark:disabled:bg-zinc-800/50 dark:disabled:text-slate-500"
-              />
-            </p>
-            <p className="flex flex-col gap-1.5 m-0">
-              <label htmlFor="in-barrio" className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
-                Barrio / Vereda
-              </label>
-              <input
-                id="in-barrio"
-                type="text"
-                value={formData.barrio}
-                onChange={(e) => setFormData({ ...formData, barrio: e.target.value })}
+                value={formData.residencia}
+                onChange={(e) => setFormData({ ...formData, residencia: e.target.value })}
                 className="w-full rounded-xl border border-slate-200 dark:border-zinc-700 bg-transparent p-3 text-sm focus:border-[#5be830] focus:ring-1 focus:ring-[#5be830] outline-none dark:text-slate-100 disabled:bg-slate-50 dark:disabled:bg-zinc-800/50 dark:disabled:text-slate-500"
               />
             </p>
