@@ -91,6 +91,7 @@ const DashboardProduccion = () => {
   const [produccionesPendientes, setProduccionesPendientes] = useState([]);
   const [produccionEnEdicion, setProduccionEnEdicion] = useState(null);
   const [historial, setHistorial] = useState([]);
+  const [datosProduccionCargados, setDatosProduccionCargados] = useState(false);
   const [alimentoInput, setAlimentoInput] = useState("");
   const [alimentoEnEdicion, setAlimentoEnEdicion] = useState(null);
 
@@ -179,12 +180,56 @@ const DashboardProduccion = () => {
     return Array.from(lineas.values());
   };
   const lineasGeneticasDisponibles = obtenerLineasGeneticas(galponOrigen);
+  const galponesRegistrados = Array.from(
+    registrosGalpones.reduce((galpones, registro) => {
+      const nombre = String(registro?.galpon || registro?.lote || "").trim();
+      const clave = normalizarGalpon(nombre);
+      if (nombre && clave && !galpones.has(clave)) {
+        galpones.set(clave, {
+          value: nombre,
+          label: /^galp[oó]n\s*/i.test(nombre) ? nombre : `Galpón ${nombre}`,
+        });
+      }
+      return galpones;
+    }, new Map()).values()
+  ).sort((a, b) => a.label.localeCompare(b.label, "es", { numeric: true, sensitivity: "base" }));
+  const galponesDisponibles = galponesRegistrados.length
+    ? galponesRegistrados
+    : [
+      { value: "Galpón 1", label: "Galpón 1" },
+      { value: "Galpón 2", label: "Galpón 2" },
+    ];
+  if (
+    produccionEnEdicion?.galpon
+    && !galponesDisponibles.some((galpon) =>
+      normalizarGalpon(galpon.value) === normalizarGalpon(produccionEnEdicion.galpon)
+    )
+  ) {
+    galponesDisponibles.push({
+      value: produccionEnEdicion.galpon,
+      label: produccionEnEdicion.galpon,
+    });
+  }
+  galponesDisponibles.sort((a, b) =>
+    a.label.localeCompare(b.label, "es", { numeric: true, sensitivity: "base" })
+  );
   const registroGalponSeleccionado = registrosGalpones.find((registro) =>
     normalizarGalpon(registro?.galpon || registro?.lote) === normalizarGalpon(galponOrigen)
   );
   const etapaGalponSeleccionado = calcularEtapaGalpon(registroGalponSeleccionado, fechaRecoleccion);
   const edadAutomatica = etapaGalponSeleccionado?.semanaVida;
   const semanaProduccionAutomatica = etapaGalponSeleccionado?.semanaProduccion;
+
+  useEffect(() => {
+    const galponCoincidente = galponesDisponibles.find((galpon) =>
+      normalizarGalpon(galpon.value) === normalizarGalpon(galponOrigen)
+    );
+    if (galponCoincidente && galponCoincidente.value !== galponOrigen) {
+      setGalponOrigen(galponCoincidente.value);
+    } else if (!galponCoincidente && galponesDisponibles.length) {
+      setGalponOrigen(galponesDisponibles[0].value);
+    }
+  }, [registrosGalpones, galponOrigen, produccionEnEdicion]);
 
   useEffect(() => {
     if (!isModalRecoleccionOpen) return;
@@ -221,34 +266,38 @@ const DashboardProduccion = () => {
 
       const sh = localStorage.getItem(`huevosMes_${mesActual}`);
       if (sh) setHuevosMes(JSON.parse(sh));
-    } catch { }
+    } catch (error) {
+      console.error("No se pudieron cargar los datos de producción guardados.", error);
+    } finally {
+      setDatosProduccionCargados(true);
+    }
   }, []);
 
   /* ─── PERSISTENCIA ─── */
   useEffect(() => {
-    if (typeof window !== "undefined")
+    if (typeof window !== "undefined" && datosProduccionCargados)
       localStorage.setItem("produccionesPendientes", JSON.stringify(produccionesPendientes));
-  }, [produccionesPendientes]);
+  }, [produccionesPendientes, datosProduccionCargados]);
 
   useEffect(() => {
-    if (typeof window !== "undefined")
+    if (typeof window !== "undefined" && datosProduccionCargados)
       localStorage.setItem("historial", JSON.stringify(historial));
-  }, [historial]);
+  }, [historial, datosProduccionCargados]);
 
   useEffect(() => {
-    if (typeof window !== "undefined")
+    if (typeof window !== "undefined" && datosProduccionCargados)
       localStorage.setItem("fcrParams", JSON.stringify({ n: nroAves, g: gAve }));
-  }, [nroAves, gAve]);
+  }, [nroAves, gAve, datosProduccionCargados]);
 
   useEffect(() => {
-    if (typeof window !== "undefined")
+    if (typeof window !== "undefined" && datosProduccionCargados)
       localStorage.setItem(`alimentoMes_${mesActual}`, JSON.stringify(alimentoMes));
-  }, [alimentoMes]);
+  }, [alimentoMes, datosProduccionCargados, mesActual]);
 
   useEffect(() => {
-    if (typeof window !== "undefined")
+    if (typeof window !== "undefined" && datosProduccionCargados)
       localStorage.setItem(`huevosMes_${mesActual}`, JSON.stringify(huevosMes));
-  }, [huevosMes]);
+  }, [huevosMes, datosProduccionCargados, mesActual]);
 
   useEffect(() => {
     if (typeof window !== "undefined")
@@ -260,12 +309,24 @@ const DashboardProduccion = () => {
   /* ════════════════════════════════════════════
      VALORES COMPUTADOS — KPI DIARIOS (DESDE HISTORIAL Y PENDIENTES)
   ════════════════════════════════════════════ */
-  const recoleccionesHoy = historial.filter(h => h.fecha === hoy);
-  const totalHuevosHoy = recoleccionesHoy.length > 0
-    ? recoleccionesHoy.reduce((sum, h) => sum + Number(h.huevosBuenos || 0) + Number(h.huevosRotos || 0) + Number(h.descarte || 0), 0)
-    : produccionesPendientes.reduce((sum, p) => sum + Number(p.huevosBuenos || 0) + Number(p.huevosRotos || 0) + Number(p.descarte || 0), 0);
-
-  const totalRecoleccionesHoy = recoleccionesHoy.length > 0 ? recoleccionesHoy.length : produccionesPendientes.length;
+  const recoleccionesHoyPorId = new Map();
+  const recoleccionesHoySinId = [];
+  [...historial, ...produccionesPendientes]
+    .filter(registro => registro.fecha === hoy)
+    .forEach((registro) => {
+      if (registro.id === undefined || registro.id === null) {
+        recoleccionesHoySinId.push(registro);
+      } else {
+        recoleccionesHoyPorId.set(String(registro.id), registro);
+      }
+    });
+  const recoleccionesHoy = [...recoleccionesHoyPorId.values(), ...recoleccionesHoySinId];
+  const totalHuevosHoy = recoleccionesHoy.reduce(
+    (sum, registro) =>
+      sum + Number(registro.huevosBuenos || 0) + Number(registro.huevosRotos || 0) + Number(registro.descarte || 0),
+    0
+  );
+  const totalRecoleccionesHoy = recoleccionesHoy.length;
   const cubetas = Math.floor(totalHuevosHoy / 30);
   const sueltos = totalHuevosHoy % 30;
 
@@ -464,7 +525,7 @@ const DashboardProduccion = () => {
 
   const handleLimpiarFormulario = () => {
     setFechaRecoleccion(hoy); setEdadSemanasRecoleccion("");
-    setNombreTrabajador(nombrePerfil); setGalponOrigen("Galpón 1");
+    setNombreTrabajador(nombrePerfil); setGalponOrigen(galponesDisponibles[0]?.value || "Galpón 1");
     setHora(horaActual); setJornada("Mañana");
     setHuevosBuenos(""); setHuevosRotosInput("");
     setDescarte(""); setNotas("");
@@ -1241,8 +1302,11 @@ const DashboardProduccion = () => {
                       setLineaGenetica(lineas.length === 1 ? lineas[0] : "");
                     }}
                     required className={inputCls}>
-                    <option value="Galpón 1">Galpón 1</option>
-                    <option value="Galpón 2">Galpón 2</option>
+                    {galponesDisponibles.map((galpon) => (
+                      <option key={normalizarGalpon(galpon.value)} value={galpon.value}>
+                        {galpon.label}
+                      </option>
+                    ))}
                   </select>
                 </label>
               </div>
