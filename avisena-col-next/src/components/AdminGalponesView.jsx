@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
 import FormLoteNuevo from '@/components/formlotenuevo';
+import api from '@/services/api';
 
 export default function AdminGalponesView() {
   const [showModal, setShowModal] = useState(false);
@@ -16,20 +17,35 @@ export default function AdminGalponesView() {
   const itemsPerPage = 5;
 
   useEffect(() => {
-    const storedData = localStorage.getItem('historialgalpones');
-    const fallbackData = localStorage.getItem('historialLotes');
-    const data = storedData
-      ? JSON.parse(storedData)
-      : fallbackData
-        ? JSON.parse(fallbackData)
-        : [];
+    async function cargarGalpones() {
+      try {
+        const dataApi = await api.get('/galpones/');
+        const lista = Array.isArray(dataApi) ? dataApi : (dataApi?.results || []);
+        if (lista.length > 0) {
+          setRegistros(lista);
+          localStorage.setItem('historialgalpones', JSON.stringify(lista));
+          return;
+        }
+      } catch (err) {
+        // Modo local o API offline
+      }
 
-    if (!storedData && fallbackData) {
-      localStorage.setItem('historialgalpones', JSON.stringify(data));
-      localStorage.removeItem('historialLotes');
+      const storedData = localStorage.getItem('historialgalpones');
+      const fallbackData = localStorage.getItem('historialLotes');
+      const data = storedData
+        ? JSON.parse(storedData)
+        : fallbackData
+          ? JSON.parse(fallbackData)
+          : [];
+
+      if (!storedData && fallbackData) {
+        localStorage.setItem('historialgalpones', JSON.stringify(data));
+        localStorage.removeItem('historialLotes');
+      }
+
+      setRegistros(data);
     }
-
-    setRegistros(data);
+    cargarGalpones();
   }, []);
 
   const showNotification = (title, message) => {
@@ -37,7 +53,7 @@ export default function AdminGalponesView() {
     setTimeout(() => setToast({ show: false, title: '', message: '' }), 4000);
   };
 
-  const guardarRegistro = (formDataSubmit) => {
+  const guardarRegistro = async (formDataSubmit) => {
     if (editRegistro) {
       const registroActualizado = {
         ...editRegistro,
@@ -46,6 +62,7 @@ export default function AdminGalponesView() {
         lote: formDataSubmit.galpon || '',
         pesoPromedio: formDataSubmit.pesopromedio || '',
         numeroAves: formDataSubmit.numerodeaves || '',
+        numeroAvesInicial: editRegistro.numeroAvesInicial || formDataSubmit.numerodeaves || '',
         linea: formDataSubmit.linea,
         responsable: formDataSubmit.responsable,
         galpon: formDataSubmit.galpon || '',
@@ -53,6 +70,14 @@ export default function AdminGalponesView() {
         certificados: formDataSubmit.certificados || editRegistro.certificados || '',
         observaciones: formDataSubmit.observaciones || ''
       };
+
+      try {
+        if (editRegistro.id && typeof editRegistro.id === 'number') {
+          await api.put(`/galpones/${editRegistro.id}/`, registroActualizado);
+        }
+      } catch (e) {
+        console.warn('No se pudo sincronizar edición en API:', e);
+      }
 
       const nuevosRegistros = registros.map((registro) =>
         registro.id === editRegistro.id ? registroActualizado : registro
@@ -72,6 +97,7 @@ export default function AdminGalponesView() {
       lote: formDataSubmit.galpon || '',
       pesoPromedio: formDataSubmit.pesopromedio || '',
       numeroAves: formDataSubmit.numerodeaves || '',
+      numeroAvesInicial: formDataSubmit.numerodeaves || '',
       linea: formDataSubmit.linea,
       responsable: formDataSubmit.responsable,
       galpon: formDataSubmit.galpon || '',
@@ -80,6 +106,15 @@ export default function AdminGalponesView() {
       observaciones: formDataSubmit.observaciones || ''
     };
 
+    try {
+      const apiResp = await api.post('/galpones/', nuevoRegistro);
+      if (apiResp && apiResp.id) {
+        nuevoRegistro.id = apiResp.id;
+      }
+    } catch (e) {
+      console.warn('No se pudo guardar nuevo galpón en API:', e);
+    }
+
     const nuevosRegistros = [nuevoRegistro, ...registros];
     localStorage.setItem('historialgalpones', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
@@ -87,7 +122,15 @@ export default function AdminGalponesView() {
     setShowModal(false);
   };
 
-  const eliminarRegistro = (registroId) => {
+  const eliminarRegistro = async (registroId) => {
+    try {
+      if (typeof registroId === 'number') {
+        await api.delete(`/galpones/${registroId}/`);
+      }
+    } catch (e) {
+      console.warn('No se pudo eliminar en API:', e);
+    }
+
     const nuevosRegistros = registros.filter((registro) => registro.id !== registroId);
     localStorage.setItem('historialgalpones', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);

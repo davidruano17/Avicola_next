@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import FormMorbilidad from '@/components/FormMorbilidad';
-
+import api from '@/services/api';
 
 export default function MorbilidadView() {
   const [showModal, setShowModal] = useState(false);
@@ -17,13 +17,23 @@ export default function MorbilidadView() {
   const itemsPerPage = 5;
 
   useEffect(() => {
-    const token = localStorage.getItem('user_token');
-    if (!token) {
-      router.push('/login');
-      return;
+    async function cargarMorbilidad() {
+      try {
+        const res = await api.get('/sanidad/morbilidad/').catch(() => null);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        if (lista.length > 0) {
+          setRegistros(lista);
+          localStorage.setItem('historialMorbilidad', JSON.stringify(lista));
+        } else {
+          const data = JSON.parse(localStorage.getItem('historialMorbilidad')) || [];
+          setRegistros(data);
+        }
+      } catch (err) {
+        const data = JSON.parse(localStorage.getItem('historialMorbilidad')) || [];
+        setRegistros(data);
+      }
     }
-    const data = JSON.parse(localStorage.getItem('historialMorbilidad')) || [];
-    setRegistros(data);
+    cargarMorbilidad();
   }, [router]);
 
   const showNotification = (title, message) => {
@@ -31,23 +41,31 @@ export default function MorbilidadView() {
     setTimeout(() => setToast({ show: false, title: '', message: '' }), 4000);
   };
 
-  const guardarRegistro = (formDataSubmit) => {
-    const loteFull = `Galpón ${formDataSubmit.galpon}`; // Se eliminó el lote puesto que ya no existe
+  const guardarRegistro = async (formDataSubmit) => {
+    const loteFull = `Galpón ${formDataSubmit.galpon}`;
 
     const nuevoRegistro = {
       id: Date.now(),
       responsable: formDataSubmit.responsable,
       fecha: formDataSubmit.fecha,
-      galpon: formDataSubmit.galpon, // Se agregó galpón para que desde reportes se pueda diferenciar el galpón del cual se quiere generar un reporte
+      galpon: formDataSubmit.galpon,
       lote: loteFull,
-      sintomas: formDataSubmit.sintomas, // Se eleiminó el join debido a que ya no es necesario porque ya no es un select sino un textarea en sintomas
+      sintomas: formDataSubmit.sintomas,
       afectacion: formDataSubmit.afectacion,
       accion: formDataSubmit.accion,
-      cantidad: Number(formDataSubmit.cantidad), // Se agrega el Number para que en reportes se pueda hacer un conteo total de las aves enfermas
+      cantidad: Number(formDataSubmit.cantidad),
       observaciones: formDataSubmit.observaciones
     };
 
-    const nuevosRegistros = [nuevoRegistro, ...registros];
+    let registroFinal = nuevoRegistro;
+    try {
+      const res = await api.post('/sanidad/morbilidad/', nuevoRegistro);
+      if (res && res.id) registroFinal = res;
+    } catch (err) {
+      console.warn("Fallo al guardar morbilidad en API, usando respaldo local:", err);
+    }
+
+    const nuevosRegistros = [registroFinal, ...registros];
     localStorage.setItem('historialMorbilidad', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
 
@@ -55,7 +73,15 @@ export default function MorbilidadView() {
     setShowModal(false);
   };
 
-  const eliminarRegistro = (registroId) => {
+  const eliminarRegistro = async (registroId) => {
+    try {
+      if (registroId && typeof registroId === 'number' && registroId < 100000000000) {
+        await api.delete(`/sanidad/morbilidad/${registroId}/`);
+      }
+    } catch (err) {
+      console.warn("Fallo al eliminar morbilidad en API, aplicando respaldo local:", err);
+    }
+
     const nuevosRegistros = registros.filter((registro) => registro.id !== registroId);
     localStorage.setItem('historialMorbilidad', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);

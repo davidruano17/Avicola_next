@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import ModalHistorial from "@/components/ModalHistorial";
+import api from "@/services/api";
 
 const normalizarGalpon = (galpon) => String(galpon || "")
   .normalize("NFD")
@@ -160,26 +161,74 @@ const DashboardProduccion = () => {
   ════════════════════════════════════════════ */
   useEffect(() => {
     if (typeof window === "undefined") return;
-    try {
-      const p = localStorage.getItem("produccionesPendientes");
-      if (p) setProduccionesPendientes(JSON.parse(p));
+    async function cargarDesdeAPI() {
+      try {
+        const [pendientesRes, historialRes, alimentoRes] = await Promise.all([
+          api.get('/produccion/pendientes/').catch(() => null),
+          api.get('/produccion/').catch(() => null),
+          api.get('/produccion/alimentacion/').catch(() => null),
+        ]);
 
-      const h = localStorage.getItem("historial");
-      if (h) setHistorial(JSON.parse(h));
+        const pList = Array.isArray(pendientesRes) ? pendientesRes : (pendientesRes?.results || []);
+        if (pList.length > 0) {
+          const guardados = JSON.parse(localStorage.getItem("produccionesPendientes") || "[]");
+          const pendientesLocales = guardados.filter(g =>
+            !pList.some(p => String(p.id) === String(g.id)) &&
+            (typeof g.id === 'string' && g.id.startsWith('temp_') || Number(g.id) > 100000000000)
+          );
+          const combinadosP = [...pendientesLocales, ...pList];
+          setProduccionesPendientes(combinadosP);
+          localStorage.setItem("produccionesPendientes", JSON.stringify(combinadosP));
+        } else {
+          const p = localStorage.getItem("produccionesPendientes");
+          if (p) setProduccionesPendientes(JSON.parse(p));
+        }
 
-      const params = localStorage.getItem("fcrParams");
-      if (params) {
-        const { n, g } = JSON.parse(params);
-        if (n) setNroAves(n);
-        if (g) setGAve(g);
+        const hList = Array.isArray(historialRes) ? historialRes : (historialRes?.results || []);
+        if (hList.length > 0) {
+          const guardadosH = JSON.parse(localStorage.getItem("historial") || "[]");
+          const pendientesLocalesH = guardadosH.filter(g =>
+            !hList.some(h => String(h.id) === String(g.id)) &&
+            (typeof g.id === 'string' && g.id.startsWith('temp_') || Number(g.id) > 100000000000)
+          );
+          const combinadosH = [...pendientesLocalesH, ...hList];
+          setHistorial(combinadosH);
+          localStorage.setItem("historial", JSON.stringify(combinadosH));
+        } else {
+          const h = localStorage.getItem("historial");
+          if (h) setHistorial(JSON.parse(h));
+        }
+
+        const aList = Array.isArray(alimentoRes) ? alimentoRes : (alimentoRes?.results || []);
+        if (aList.length > 0) {
+          const totalKg = aList.reduce((sum, item) => sum + Number(item.cantidad || 0), 0);
+          setAlimentoMes({
+            mes: mesActual,
+            registros: aList.map(a => ({ id: a.id, fecha: a.fecha, kg: a.cantidad })),
+            total: +totalKg.toFixed(2),
+          });
+        } else {
+          const sa = localStorage.getItem(`alimentoMes_${mesActual}`);
+          if (sa) setAlimentoMes(JSON.parse(sa));
+        }
+
+        const params = localStorage.getItem("fcrParams");
+        if (params) {
+          const { n, g } = JSON.parse(params);
+          if (n) setNroAves(n);
+          if (g) setGAve(g);
+        }
+
+        const sh = localStorage.getItem(`huevosMes_${mesActual}`);
+        if (sh) setHuevosMes(JSON.parse(sh));
+      } catch {
+        const p = localStorage.getItem("produccionesPendientes");
+        if (p) setProduccionesPendientes(JSON.parse(p));
+        const h = localStorage.getItem("historial");
+        if (h) setHistorial(JSON.parse(h));
       }
-
-      const sa = localStorage.getItem(`alimentoMes_${mesActual}`);
-      if (sa) setAlimentoMes(JSON.parse(sa));
-
-      const sh = localStorage.getItem(`huevosMes_${mesActual}`);
-      if (sh) setHuevosMes(JSON.parse(sh));
-    } catch { }
+    }
+    cargarDesdeAPI();
   }, []);
 
   /* ─── PERSISTENCIA ─── */
@@ -306,7 +355,7 @@ const DashboardProduccion = () => {
   /* ════════════════════════════════════════════
      HANDLERS
   ════════════════════════════════════════════ */
-  const handleRecoleccionSubmit = (e) => {
+  const handleRecoleccionSubmit = async (e) => {
     e.preventDefault();
 
     const nombreTrimmed = nombreTrabajador.trim();
@@ -331,6 +380,13 @@ const DashboardProduccion = () => {
     };
 
     if (produccionEnEdicion) {
+      try {
+        if (produccionEnEdicion.id && typeof produccionEnEdicion.id === 'number' && produccionEnEdicion.id < 100000000000) {
+          await api.put(`/produccion/${produccionEnEdicion.id}/`, produccion);
+        }
+      } catch (err) {
+        console.warn("Fallo al actualizar producción en API, usando respaldo local:", err);
+      }
       setHuevosMes(prev => ({
         ...prev,
         buenos: prev.buenos - produccionEnEdicion.huevosBuenos + produccion.huevosBuenos,
@@ -365,11 +421,17 @@ const DashboardProduccion = () => {
       );
       setProduccionEnEdicion(null);
     } else {
-      const newId = Date.now();
+      let newId = Date.now();
+      try {
+        const res = await api.post('/produccion/', produccion);
+        if (res && res.id) newId = res.id;
+      } catch (err) {
+        console.warn("Fallo al guardar producción en API, usando respaldo local:", err);
+      }
       setHuevosMes(prev => ({
         ...prev,
         buenos: prev.buenos + produccion.huevosBuenos,
-        rotos: prev.rotos + produccion.huevosRotos,
+        rotos: prev.rotos - produccionEnEdicion?.huevosRotos + produccion.huevosRotos || (prev.rotos + produccion.huevosRotos),
         descarte: prev.descarte + produccion.descarte,
       }));
       setProduccionesPendientes(prev => [{ id: newId, ...produccion }, ...prev]);
@@ -427,10 +489,21 @@ const DashboardProduccion = () => {
     }
   };
 
-  const handleAlimentoSubmit = (e) => {
+  const handleAlimentoSubmit = async (e) => {
     e.preventDefault();
     const kg = parseFloat(alimentoInput);
     if (!isNaN(kg) && kg > 0) {
+      try {
+        await api.post('/produccion/alimentacion/', {
+          fecha: hoy,
+          galpon: galponOrigen,
+          cantidad: kg,
+          costo: 0,
+          observaciones: "Registro diario de alimentación",
+        });
+      } catch (err) {
+        console.warn("Fallo al guardar alimentación en API, usando respaldo local:", err);
+      }
       if (alimentoEnEdicion) {
         setAlimentoMes(prev => {
           const nuevosRegistros = prev.registros.map(r =>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import FormTratamiento from '@/components/FormTratamiento';
-
+import api from '@/services/api';
 
 export default function TratamientoView() {
   const [tratamientos, setTratamientos] = useState([]);
@@ -13,17 +13,33 @@ export default function TratamientoView() {
   const router = useRouter();
 
   useEffect(() => {
-    const tratamientosGuardados = localStorage.getItem('tratamientos');
-    if (tratamientosGuardados) {
-      setTratamientos(JSON.parse(tratamientosGuardados));
+    async function cargarTratamientos() {
+      try {
+        const res = await api.get('/sanidad/tratamientos/').catch(() => null);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        if (lista.length > 0) {
+          setTratamientos(lista);
+          localStorage.setItem('tratamientos', JSON.stringify(lista));
+        } else {
+          const tratamientosGuardados = localStorage.getItem('tratamientos');
+          if (tratamientosGuardados) {
+            setTratamientos(JSON.parse(tratamientosGuardados));
+          }
+        }
+      } catch (err) {
+        const tratamientosGuardados = localStorage.getItem('tratamientos');
+        if (tratamientosGuardados) {
+          setTratamientos(JSON.parse(tratamientosGuardados));
+        }
+      }
     }
+    cargarTratamientos();
 
     // Revisar si hay datos de autofill en localStorage
     const autofillData = localStorage.getItem('tratamientoAutofill');
     if (autofillData) {
       setDefaultFormData(JSON.parse(autofillData));
       setMostrarFormulario(true);
-      // Limpiar después de usarlo
       localStorage.removeItem('tratamientoAutofill');
     }
   }, []);
@@ -33,7 +49,7 @@ export default function TratamientoView() {
     setTimeout(() => setNotificacion(null), 4000);
   };
 
-  const guardarTratamiento = (formData) => {
+  const guardarTratamiento = async (formData) => {
     const nuevoTratamiento = {
       id: Date.now(),
       ...formData,
@@ -41,7 +57,15 @@ export default function TratamientoView() {
       fechaRegistro: new Date().toISOString()
     };
 
-    const tratamientosActualizados = [nuevoTratamiento, ...tratamientos];
+    let tratamientoFinal = nuevoTratamiento;
+    try {
+      const res = await api.post('/sanidad/tratamientos/', nuevoTratamiento);
+      if (res && res.id) tratamientoFinal = res;
+    } catch (err) {
+      console.warn("Fallo al guardar tratamiento en API, usando respaldo local:", err);
+    }
+
+    const tratamientosActualizados = [tratamientoFinal, ...tratamientos];
     setTratamientos(tratamientosActualizados);
     localStorage.setItem('tratamientos', JSON.stringify(tratamientosActualizados));
 
@@ -49,14 +73,30 @@ export default function TratamientoView() {
     showNotification('✓ Tratamiento registrado correctamente');
   };
 
-  const eliminarTratamiento = (id) => {
+  const eliminarTratamiento = async (id) => {
+    try {
+      if (id && typeof id === 'number' && id < 100000000000) {
+        await api.delete(`/sanidad/tratamientos/${id}/`);
+      }
+    } catch (err) {
+      console.warn("Fallo al eliminar tratamiento en API, aplicando respaldo local:", err);
+    }
+
     const tratamientosActualizados = tratamientos.filter(t => t.id !== id);
     setTratamientos(tratamientosActualizados);
     localStorage.setItem('tratamientos', JSON.stringify(tratamientosActualizados));
     showNotification('✓ Tratamiento eliminado');
   };
 
-  const completarTratamiento = (id) => {
+  const completarTratamiento = async (id) => {
+    try {
+      if (id && typeof id === 'number' && id < 100000000000) {
+        await api.patch(`/sanidad/tratamientos/${id}/`, { estado: 'Completado' });
+      }
+    } catch (err) {
+      console.warn("Fallo al actualizar tratamiento en API, usando respaldo local:", err);
+    }
+
     const tratamientosActualizados = tratamientos.map(t =>
       t.id === id ? { ...t, estado: 'Completado' } : t
     );

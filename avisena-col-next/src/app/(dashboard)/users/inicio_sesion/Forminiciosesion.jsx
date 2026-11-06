@@ -10,14 +10,38 @@ export default function Forminiciosesion() {
 
     const handleLogin = (e) => {
         e.preventDefault();
-        if (email === 'admin' || email === 'aprendiz' || email === 'investigador') {
-            localStorage.setItem('user_token', 'dummy-token');
-            localStorage.setItem('user_id', email);
+        const trimmedEmail = email.trim();
+        const trimmedPassword = password.trim();
+
+        if (trimmedEmail === 'admin' || trimmedEmail === 'aprendiz' || trimmedEmail === 'investigador') {
+            localStorage.setItem('user_token', 'token-' + trimmedEmail);
+            localStorage.setItem('user_id', trimmedEmail);
             navigate('/dashboard');
-        } else {
-            setError(true);
-            setTimeout(() => setError(false), 5000);
+            return;
         }
+
+        const usuariosGuardados = JSON.parse(localStorage.getItem('usuarios')) || [];
+        const usuarioEncontrado = usuariosGuardados.find(
+            (u) => u.email && u.email.trim().toLowerCase() === trimmedEmail.toLowerCase()
+        );
+
+        if (usuarioEncontrado && (!usuarioEncontrado.password || usuarioEncontrado.password === trimmedPassword)) {
+            let roleId = 'admin';
+            const rolStr = (usuarioEncontrado.rol || '').toLowerCase();
+            if (rolStr.includes('aprendiz')) {
+                roleId = 'aprendiz';
+            } else if (rolStr.includes('investigador')) {
+                roleId = 'investigador';
+            }
+
+            localStorage.setItem('user_token', 'token-' + (usuarioEncontrado.id || Date.now()));
+            localStorage.setItem('user_id', roleId);
+            navigate('/dashboard');
+            return;
+        }
+
+        setError(true);
+        setTimeout(() => setError(false), 5000);
     };
 
     const togglePassword = () => {

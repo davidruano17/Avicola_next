@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import api from "@/services/api";
 
 const formatDots = (num) => {
   if (!num) return "";
@@ -133,8 +134,23 @@ export default function ClasificacionView() {
   };
 
   useEffect(() => {
-    const saved = localStorage.getItem("avisena_storage");
-    if (saved) setHistorial(JSON.parse(saved));
+    async function cargarClasificaciones() {
+      try {
+        const res = await api.get('/produccion/clasificacion/').catch(() => null);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        if (lista.length > 0) {
+          setHistorial(lista);
+          localStorage.setItem("avisena_storage", JSON.stringify(lista));
+        } else {
+          const saved = localStorage.getItem("avisena_storage");
+          if (saved) setHistorial(JSON.parse(saved));
+        }
+      } catch (err) {
+        const saved = localStorage.getItem("avisena_storage");
+        if (saved) setHistorial(JSON.parse(saved));
+      }
+    }
+    cargarClasificaciones();
   }, []);
 
   useEffect(() => {
@@ -346,6 +362,13 @@ export default function ClasificacionView() {
     const nuevoHistorial = [...historial, registro];
     setHistorial(nuevoHistorial);
     localStorage.setItem("avisena_storage", JSON.stringify(nuevoHistorial));
+
+    try {
+      api.post('/produccion/clasificacion/', {
+        ...registro,
+        produccion: produccionOrigen?.id,
+      }).catch(err => console.warn("Fallo al guardar clasificación en API:", err));
+    } catch (err) {}
 
     if (produccionOrigen) {
       const pendingSaved = localStorage.getItem("produccionesPendientes");

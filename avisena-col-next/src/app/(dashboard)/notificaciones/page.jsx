@@ -1,6 +1,7 @@
 'use client'; 
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import api from '@/services/api';
 
 const INITIAL_NOTIFICATIONS = [
   {
@@ -41,6 +42,21 @@ export default function Page() {
   const [notifications, setNotifications] = useState(INITIAL_NOTIFICATIONS);
   const [activeTab, setActiveTab] = useState('Todas');
 
+  useEffect(() => {
+    async function cargarNotificaciones() {
+      try {
+        const res = await api.get('/notificaciones/').catch(() => null);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        if (lista.length > 0) {
+          setNotifications(lista);
+        }
+      } catch (err) {
+        // mantener INITIAL_NOTIFICATIONS
+      }
+    }
+    cargarNotificaciones();
+  }, []);
+
   // Contadores dinámicos
   const totalCount = notifications.length;
   const unreadCount = notifications.filter(n => n.unread).length;
@@ -53,13 +69,21 @@ export default function Page() {
     return true; 
   });
 
-  const handleMarkAllAsRead = () => {
+  const handleMarkAllAsRead = async () => {
+    try {
+      await api.post('/notificaciones/marcar_todas_leidas/').catch(() => null);
+    } catch (err) {}
     setNotifications(prevNotifications => 
       prevNotifications.map(n => ({ ...n, unread: false }))
     );
   };
 
-  const handleViewDetails = (id) => {
+  const handleViewDetails = async (id) => {
+    try {
+      if (typeof id === 'number' && id < 100000000000) {
+        await api.patch(`/notificaciones/${id}/marcar_leida/`).catch(() => null);
+      }
+    } catch (err) {}
     alert(`Abriendo detalles del suceso ID: ${id}`);
     setNotifications(prevNotifications =>
       prevNotifications.map(n => (n.id === id ? { ...n, unread: false } : n))

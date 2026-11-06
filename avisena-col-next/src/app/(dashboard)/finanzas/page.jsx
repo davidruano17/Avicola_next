@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from "react";
+import api from "@/services/api";
 
 // Precios estándar por panal según clasificación
 const PRECIOS_POR_DEFECTO = {
@@ -70,18 +71,28 @@ export default function FinanzasAvicolas() {
   const [nuevaTransaccion, setNuevaTransaccion] = useState(estadoInicialFormulario);
   const [cargado, setCargado] = useState(false);
 
-  // 1. CARGAR REGISTROS PREVIOS DE LOCALSTORAGE
+  // 1. CARGAR REGISTROS DESDE API CON RESPALDO LOCAL
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const datosGuardados = localStorage.getItem("avisena_transacciones");
-    if (datosGuardados) {
+    async function cargarTransacciones() {
       try {
-        setTransacciones(JSON.parse(datosGuardados));
+        const res = await api.get('/finanzas/').catch(() => null);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        if (lista.length > 0) {
+          setTransacciones(lista);
+          localStorage.setItem("avisena_transacciones", JSON.stringify(lista));
+        } else {
+          const datosGuardados = localStorage.getItem("avisena_transacciones");
+          if (datosGuardados) setTransacciones(JSON.parse(datosGuardados));
+        }
       } catch (e) {
-        console.error("Error al leer transacciones de localStorage", e);
+        const datosGuardados = localStorage.getItem("avisena_transacciones");
+        if (datosGuardados) setTransacciones(JSON.parse(datosGuardados));
+      } finally {
+        setCargado(true);
       }
     }
-    setCargado(true);
+    cargarTransacciones();
   }, []);
 
   // 2. GUARDAR REGISTROS EN LOCALSTORAGE
@@ -329,6 +340,10 @@ export default function FinanzasAvicolas() {
 
     nuevosRegistros.push(principalItem);
 
+    try {
+      api.post('/finanzas/', principalItem).catch(err => console.warn("Fallo al guardar finanzas en API:", err));
+    } catch (e) {}
+
     if (nuevaTransaccion.tipo === "Ingreso" && nuevaTransaccion.asociarGastoInmediato) {
       const montoGasto = parseFloat(nuevaTransaccion.montoGastoAsociado) || 0;
       if (montoGasto > 0) {
@@ -346,6 +361,9 @@ export default function FinanzasAvicolas() {
           estStyle: coloresEstados["Completado"]
         };
         nuevosRegistros.push(itemGasto);
+        try {
+          api.post('/finanzas/', itemGasto).catch(err => console.warn("Fallo al guardar gasto asociado en API:", err));
+        } catch (e) {}
       }
     }
 

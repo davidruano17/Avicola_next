@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
+import { sincronizarPendientes, obtenerPendientes } from '@/services/api';
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -60,8 +61,40 @@ export default function DashboardLayout({ children }) {
   // Se activa recién montado en el cliente: evita leer localStorage durante el
   // render en servidor (Next pre-renderiza los Client Components en el server).
   const [mounted, setMounted] = useState(false);
+  const [pendientesSync, setPendientesSync] = useState(0);
+
   useEffect(() => {
     setMounted(true);
+
+    // Actualizar conteo inicial de peticiones pendientes
+    const pendientes = obtenerPendientes();
+    setPendientesSync(pendientes.length);
+
+    // Intentar sincronizar cola offline inmediatamente al iniciar
+    sincronizarPendientes().then(res => {
+      if (res?.pendientes !== undefined) setPendientesSync(res.pendientes);
+    });
+
+    const alReconectar = () => {
+      sincronizarPendientes().then(res => {
+        if (res?.pendientes !== undefined) setPendientesSync(res.pendientes);
+      });
+    };
+
+    const alCambiarCola = (e) => {
+      const cantidad = e.detail?.cola?.length || e.detail?.pendientesRestantes || 0;
+      setPendientesSync(cantidad);
+    };
+
+    window.addEventListener('online', alReconectar);
+    window.addEventListener('avisena:queue-updated', alCambiarCola);
+    window.addEventListener('avisena:synced', alCambiarCola);
+
+    return () => {
+      window.removeEventListener('online', alReconectar);
+      window.removeEventListener('avisena:queue-updated', alCambiarCola);
+      window.removeEventListener('avisena:synced', alCambiarCola);
+    };
   }, []);
 
   const isUsersActive = [
@@ -131,6 +164,7 @@ export default function DashboardLayout({ children }) {
 
   const handleLogout = () => {
     localStorage.removeItem('user_token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user_id');
     router.push('/login');
   };
@@ -269,9 +303,21 @@ export default function DashboardLayout({ children }) {
                 <p className="text-sm font-bold text-slate-800 dark:text-slate-100 m-0 leading-tight user-name-display">
                   {currentUser.name}
                 </p>
-                <p className="text-xs text-primary font-medium m-0 flex items-center justify-end gap-1 mt-0.5">
-                  <span className="w-2 h-2 rounded-full bg-primary block"></span> Online
-                </p>
+                {pendientesSync > 0 ? (
+                  <button
+                    type="button"
+                    onClick={() => sincronizarPendientes()}
+                    title="Registros realizados sin conexión pendientes de guardar en MySQL. Haz clic para sincronizar ahora."
+                    className="text-[11px] text-amber-500 font-semibold m-0 flex items-center justify-end gap-1.5 mt-0.5 hover:underline cursor-pointer border-none bg-transparent p-0"
+                  >
+                    <span className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span>Sincronizando ({pendientesSync})</span>
+                  </button>
+                ) : (
+                  <p className="text-xs text-primary font-medium m-0 flex items-center justify-end gap-1 mt-0.5">
+                    <span className="w-2 h-2 rounded-full bg-primary block"></span> Online
+                  </p>
+                )}
               </div>
               <section className="relative">
                 <button
@@ -360,7 +406,7 @@ export default function DashboardLayout({ children }) {
         </header>
 
         {/* MAIN VIEW FOR ROUTING */}
-        <section id="main-view" className="flex-1 overflow-y-auto p-8 animate-[fadeIn_0.3s_ease-in-out]">
+        <section id="main-view" className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8 animate-[fadeIn_0.3s_ease-in-out]">
           {children}
           <footer className="mt-2 py-8 border-t border-slate-200 dark:border-slate-800 text-center">
             <section className="flex flex-col items-center gap-4">

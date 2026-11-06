@@ -6,8 +6,8 @@ export default function ModalEditarMortalidad({
   abierto,
   cerrar,
   registro,
-  registros,
-  setRegistros,
+  galpones = [],
+  editarRegistro,
   mostrarMensaje,
 }) {
   const [datos, setDatos] = useState({
@@ -18,6 +18,8 @@ export default function ModalEditarMortalidad({
     necropsia: "",
     disposicion: "",
   });
+  const [errorStock, setErrorStock] = useState("");
+
   useEffect(() => {
     if (registro) {
       setDatos({
@@ -28,197 +30,284 @@ export default function ModalEditarMortalidad({
         necropsia: registro.necropsia,
         disposicion: registro.disposicion,
       });
+      setErrorStock("");
     }
   }, [registro]);
+
+  const galponSeleccionado = galpones.find(
+    (g) =>
+      String(g.galpon).trim().toLowerCase() === String(datos.galpon).trim().toLowerCase() ||
+      String(g.id) === String(datos.galpon) ||
+      String(g.lote).trim().toLowerCase() === String(datos.galpon).trim().toLowerCase() ||
+      String(g.galpon).trim().replace(/^0+/, "") === String(datos.galpon).trim().replace(/^0+/, "")
+  );
+
+  // Si es el mismo galpón original, el límite es el saldo actual + las aves de este registro
+  const esMismoGalpon =
+    registro &&
+    (String(registro.galpon).trim().toLowerCase() === String(datos.galpon).trim().toLowerCase() ||
+      String(registro.galpon).trim().replace(/^0+/, "") ===
+        String(datos.galpon).trim().replace(/^0+/, ""));
+
+  const avesBaseGalpon = Number(
+    galponSeleccionado?.numeroAves ?? galponSeleccionado?.numerodeaves ?? 0
+  );
+
+  const avesDisponiblesParaEditar = esMismoGalpon
+    ? avesBaseGalpon + Number(registro?.cantidad || 0)
+    : avesBaseGalpon;
 
   function guardarCambios() {
     if (!registro) return;
 
-    const nuevosRegistros = registros.map((r) =>
-      r.id === registro.id
-        ? {
-            ...r,
-            ...datos,
-            cantidad: Number(datos.cantidad),
-            edad: Number(datos.edad),
-          }
-        : r,
-    );
+    if (!galponSeleccionado) {
+      setErrorStock("Por favor seleccione un galpón válido.");
+      return;
+    }
 
-    setRegistros(nuevosRegistros);
+    const nuevaCant = Number(datos.cantidad);
+    if (nuevaCant <= 0) {
+      setErrorStock("La cantidad de aves debe ser al menos 1.");
+      return;
+    }
 
-    localStorage.setItem(
-      "registrosMortalidad",
-      JSON.stringify(nuevosRegistros),
-    );
-    mostrarMensaje("Registro actualizado correctamente");
+    if (nuevaCant > avesDisponiblesParaEditar) {
+      setErrorStock(
+        `No puedes registrar más de ${avesDisponiblesParaEditar.toLocaleString()} aves muertas para este galpón.`
+      );
+      return;
+    }
 
+    const registroActualizado = {
+      ...registro,
+      ...datos,
+      galpon: galponSeleccionado.galpon || datos.galpon,
+      galponId: galponSeleccionado.id || registro.galponId || null,
+      cantidad: nuevaCant,
+      edad: Number(datos.edad),
+    };
+
+    editarRegistro(registroActualizado, registro);
     cerrar();
   }
 
   if (!abierto) return null;
   return (
     <>
-      <section
-        className="fixed inset-0 bg-black/50 z-50 p-4 flex items-center justify-center"
-      >
-        <section
-          className="bg-white border border-slate-200 w-full max-w-4xl rounded-xl shadow-sm p-6 overflow-hidden relative "
-        >
-          <section className="flex items-center justify-between p-6 border-b border-slate-200 dark:border-border-dark">
-            <section className="flex items-center gap-2">
-              <span className="material-icons text-primary">edit</span>
-              <h2 className="text-lg font-bold justify-center">
-                Editar registro de mortalidad
+      <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 p-3 sm:p-4 md:p-6 flex items-center justify-center overflow-y-auto">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-3xl rounded-2xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden my-auto animate-in fade-in zoom-in-95 duration-150">
+          {/* Cabecera del Modal */}
+          <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-slate-200 dark:border-slate-800 shrink-0">
+            <div className="flex items-center gap-2.5">
+              <div className="size-9 rounded-lg bg-blue-50 dark:bg-blue-950/40 flex items-center justify-center text-blue-600 dark:text-blue-400">
+                <span className="material-symbols-outlined text-xl">edit</span>
+              </div>
+              <h2 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white">
+                Editar Registro de Mortalidad
               </h2>
-            </section>
+            </div>
             <button
+              type="button"
               onClick={cerrar}
-              className="text-slate-400 hover:text-red-500 transition-colors"
+              className="text-slate-400 hover:text-red-500 hover:bg-slate-100 dark:hover:bg-slate-800 p-1.5 rounded-lg transition-colors"
             >
-              <span className="material-icons">close</span>
+              <span className="material-symbols-outlined text-xl">close</span>
             </button>
-          </section>
+          </div>
+
+          {/* Formulario scrolleable */}
           <form
             onSubmit={(e) => {
               e.preventDefault();
               guardarCambios();
             }}
+            className="flex flex-col flex-1 overflow-hidden"
           >
-            <section className="space-y-5 p-6 grid grid-cols-2 ">
-              <section className="space-y-1.5 p-1 m-0">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Galpón donde se produjo la mortalidad{" "}
-                  <span className="text-red-500">*</span>
-                </label>
-                <select
-                  className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
-                  required
-                  value={datos.galpon}
-                  onChange={(e) =>
-                    setDatos({
-                      ...datos,
-                      galpon: e.target.value,
-                    })
-                  }
-                >
-                  <option value="">Seleccione el galpón...</option>
-                  <option value="01">01</option>
-                  <option value="02">02</option>
-                </select>
-              </section>
-              <section className="space-y-1.5 p-1 m-0">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Cantidad de aves muertas{" "}
-                  <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  placeholder="0"
-                  min="1"
-                  className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
-                  value={datos.cantidad}
-                  onChange={(e) =>
-                    setDatos({
-                      ...datos,
-                      cantidad: e.target.value,
-                    })
-                  }
-                />
-              </section>
-              <section className="space-y-1.5 p-1 m-0">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Edad en semanas <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  required
-                  placeholder="Ingrese la edad en semanas de las aves. Ej: 19"
-                  className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
-                  value={datos.edad}
-                  onChange={(e) =>
-                    setDatos({
-                      ...datos,
-                      edad: e.target.value,
-                    })
-                  }
-                />
-              </section>
-              <section className="space-y-1.5 p-1 m-0">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Causa de Muerte <span className="text-red-500">*</span>
-                </label>
-                <input
-                  type="text"
-                  placeholder="Ingrese la causa de mortalidad..."
-                  required
-                  className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
-                  value={datos.causa}
-                  onChange={(e) =>
-                    setDatos({
-                      ...datos,
-                      causa: e.target.value,
-                    })
-                  }
-                />
-              </section>
-              <section className="space-y-1.5 p-1 m-0">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Resultado de Necropsia <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  required
-                  placeholder="Describa los hallazgos encontrados..."
-                  className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
-                  value={datos.necropsia}
-                  onChange={(e) =>
-                    setDatos({
-                      ...datos,
-                      necropsia: e.target.value,
-                    })
-                  }
-                />
-              </section>
-              <section className="space-y-1.5 p-1 m-0">
-                <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
-                  Disposición final <span className="text-red-500">*</span>
-                </label>
-                <textarea
-                  placeholder="Describa cuál será la disposición final del ave..."
-                  required
-                  className="w-full pl-5 py-2.5 border border-slate-200 rounded-lg bg-slate-50 outline-none transition-all duration-300 focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
-                  value={datos.disposicion}
-                  onChange={(e) =>
-                    setDatos({
-                      ...datos,
-                      disposicion: e.target.value,
-                    })
-                  }
-                />
-              </section>
-            </section>
-            <section className="content-end">
-              <section className="flex justify-center space-y-1.5">
-                <button
-                  type="button"
-                  className="bg-[#e2e8f0] px-5 py-2.5 mr-4 rounded-lg border border-slate-200 hover:bg-slate-100 transition-all"
-                  onClick={cerrar}
-                >
-                  Cancelar
-                </button>
-                <button
-                  className="flex h-12 cursor-pointer items-center justify-center gap-2 rounded-lg border-0 bg-primary hover:bg-[#58db25] px-6 font-bold text-black shadow-[0_10px_15px_rgba(73,230,25,0.2)] transition-all duration-200 ease-in-out"
-                  type="submit"
-                >
-                  <span className="material-icons text-sm">save</span>
-                  Guardar Registro
-                </button>
-              </section>
-            </section>
+            <div className="p-5 sm:p-6 overflow-y-auto space-y-4 flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Galpón */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Galpón donde se produjo la mortalidad <span className="text-red-500">*</span>
+                  </label>
+                  <select
+                    className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                    required
+                    value={datos.galpon}
+                    onChange={(e) => {
+                      setDatos({
+                        ...datos,
+                        galpon: e.target.value,
+                      });
+                      setErrorStock("");
+                    }}
+                  >
+                    <option value="">Seleccione el galpón...</option>
+                    {galpones.map((g) => {
+                      const nombre = g.galpon || g.lote || `ID ${g.id}`;
+                      const aves = Number(g.numeroAves ?? g.numerodeaves ?? 0);
+                      return (
+                        <option key={g.id || nombre} value={nombre}>
+                          Galpón {nombre} ({aves.toLocaleString()} aves disponibles)
+                        </option>
+                      );
+                    })}
+                  </select>
+
+                  {/* Indicador de aves disponibles para este registro */}
+                  {galponSeleccionado && (
+                    <div
+                      className={`text-xs font-medium flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg transition-all ${
+                        avesDisponiblesParaEditar > 0
+                          ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60"
+                          : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60"
+                      }`}
+                    >
+                      <span className="material-symbols-outlined text-base">
+                        {avesDisponiblesParaEditar > 0 ? "check_circle" : "error"}
+                      </span>
+                      <span>
+                        {avesDisponiblesParaEditar > 0
+                          ? `Aves disponibles para este registro: ${avesDisponiblesParaEditar.toLocaleString()} aves.`
+                          : "Este galpón no tiene aves disponibles."}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Fila: Cantidad, Edad y Causa de Muerte en una sola fila */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:col-span-2">
+                  {/* Cantidad */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Cantidad de aves muertas <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      placeholder="0"
+                      min="1"
+                      max={avesDisponiblesParaEditar > 0 ? avesDisponiblesParaEditar : undefined}
+                      className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                      value={datos.cantidad}
+                      onChange={(e) => {
+                        setDatos({
+                          ...datos,
+                          cantidad: e.target.value,
+                        });
+                        setErrorStock("");
+                      }}
+                    />
+                    {errorStock && (
+                      <p className="text-xs text-red-500 font-medium mt-1">
+                        {errorStock}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Edad */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Edad en semanas <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      required
+                      placeholder="Ej: 19"
+                      className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                      value={datos.edad}
+                      onChange={(e) =>
+                        setDatos({
+                          ...datos,
+                          edad: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+
+                  {/* Causa */}
+                  <div className="space-y-1.5">
+                    <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
+                      Causa de Muerte <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      placeholder="Ingrese la causa de mortalidad..."
+                      required
+                      className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                      value={datos.causa}
+                      onChange={(e) =>
+                        setDatos({
+                          ...datos,
+                          causa: e.target.value,
+                        })
+                      }
+                    />
+                  </div>
+                </div>
+
+                {/* Resultado de Necropsia */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Resultado de Necropsia <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    required
+                    placeholder="Describa los hallazgos encontrados..."
+                    className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40 resize-y"
+                    value={datos.necropsia}
+                    onChange={(e) =>
+                      setDatos({
+                        ...datos,
+                        necropsia: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+
+                {/* Disposición final */}
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="block text-xs sm:text-sm font-medium text-slate-700 dark:text-slate-300">
+                    Disposición final <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    rows={3}
+                    placeholder="Describa cuál será la disposición final del ave..."
+                    required
+                    className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40 resize-y"
+                    value={datos.disposicion}
+                    onChange={(e) =>
+                      setDatos({
+                        ...datos,
+                        disposicion: e.target.value,
+                      })
+                    }
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Botones de acción footer */}
+            <div className="px-5 sm:px-6 py-4 border-t border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/50 flex flex-col-reverse sm:flex-row sm:justify-end gap-3 shrink-0">
+              <button
+                type="button"
+                className="w-full sm:w-auto px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 text-sm font-semibold transition-all"
+                onClick={cerrar}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                className="w-full sm:w-auto flex h-11 items-center justify-center gap-2 rounded-xl bg-[#49E619] hover:bg-[#3dc407] px-6 text-sm font-bold text-black shadow-md shadow-[#49E619]/20 transition-all duration-200"
+              >
+                <span className="material-symbols-outlined text-lg">save</span>
+                <span>Guardar Cambios</span>
+              </button>
+            </div>
           </form>
-        </section>
-      </section>
+        </div>
+      </div>
     </>
   );
 }

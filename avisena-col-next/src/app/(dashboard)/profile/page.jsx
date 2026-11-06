@@ -1,8 +1,10 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import { useRouter } from 'next/navigation';
 
 export default function Page() {
+  const router = useRouter();
   const defaultProfiles = {
     admin: {
       name: 'Instructor Líder (Admin)',
@@ -62,6 +64,50 @@ export default function Page() {
   // Original Form field states
   const [formData, setFormData] = useState({ ...profile });
 
+  // Password change states
+  const [passwordActual, setPasswordActual] = useState('');
+  const [passwordNueva, setPasswordNueva] = useState('');
+  const [passwordConfirmar, setPasswordConfirmar] = useState('');
+  const [showPasswordActual, setShowPasswordActual] = useState(false);
+  const [showPasswordNueva, setShowPasswordNueva] = useState(false);
+  const [showPasswordConfirmar, setShowPasswordConfirmar] = useState(false);
+  const [passwordError, setPasswordError] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
+  const [guardandoPassword, setGuardandoPassword] = useState(false);
+  const [mostrarAvisoExpiracion, setMostrarAvisoExpiracion] = useState(false);
+  const [segundosRestantes, setSegundosRestantes] = useState(5);
+
+  const cerrarSesionYRedirigir = () => {
+    localStorage.removeItem('user_token');
+    localStorage.removeItem('refresh_token');
+    router.push('/login');
+  };
+
+  const notificarExpiracionSesion = () => {
+    setPasswordActual('');
+    setPasswordNueva('');
+    setPasswordConfirmar('');
+    setPasswordError('');
+    setPasswordSuccess('Contraseña actualizada con éxito. Tu sesión caducará en breve.');
+    setGuardandoPassword(false);
+    setMostrarAvisoExpiracion(true);
+    setSegundosRestantes(5);
+  };
+
+  useEffect(() => {
+    let timer;
+    if (mostrarAvisoExpiracion) {
+      if (segundosRestantes > 0) {
+        timer = setTimeout(() => {
+          setSegundosRestantes((prev) => prev - 1);
+        }, 1000);
+      } else {
+        cerrarSesionYRedirigir();
+      }
+    }
+    return () => clearTimeout(timer);
+  }, [mostrarAvisoExpiracion, segundosRestantes]);
+
   useEffect(() => {
     // Keep form data in sync if profile changes
     setFormData({ ...profile });
@@ -82,14 +128,14 @@ export default function Page() {
     const updatedProfile = { ...formData };
     setProfile(updatedProfile);
     localStorage.setItem(`user_profile_${userId}`, JSON.stringify(updatedProfile));
-    
+
     // Dispatch standard storage event so layout can listen
     window.dispatchEvent(new Event('storage'));
-    
+
     setIsEditing(false);
     setSuccessAlert(true);
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    
+
     setTimeout(() => {
       setSuccessAlert(false);
     }, 4000);
@@ -102,7 +148,7 @@ export default function Page() {
         const base64Url = event.target.result;
         const updatedProfile = { ...formData, avatar: base64Url };
         setFormData(updatedProfile);
-        
+
         // Auto-save the picture change to profile too
         setProfile(prev => {
           const next = { ...prev, avatar: base64Url };
@@ -115,6 +161,126 @@ export default function Page() {
       };
       reader.readAsDataURL(e.target.files[0]);
     }
+  };
+
+  const handlePasswordSubmit = async (e) => {
+    e.preventDefault();
+    setPasswordError('');
+    setPasswordSuccess('');
+
+    const actual = passwordActual.trim();
+    const nueva = passwordNueva.trim();
+    const confirmar = passwordConfirmar.trim();
+
+    if (!actual || !nueva || !confirmar) {
+      setPasswordError('Por favor complete todos los campos de contraseña.');
+      return;
+    }
+
+    if (nueva.length < 8) {
+      setPasswordError('La nueva contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+
+    if (nueva !== confirmar) {
+      setPasswordError('La nueva contraseña y su confirmación no coinciden.');
+      return;
+    }
+
+    if (nueva === actual) {
+      setPasswordError('La nueva contraseña debe ser diferente a la contraseña actual.');
+      return;
+    }
+
+    setGuardandoPassword(true);
+
+    const userId = localStorage.getItem('user_id') || 'admin';
+    const token = localStorage.getItem('user_token');
+
+    // 1. Intentar actualizar en el backend Django si hay token y conexión
+    if (token && !token.startsWith('token-') && !token.startsWith('dummy-token')) {
+      try {
+        const res = await fetch('http://127.0.0.1:8000/api/auth/cambiar-contrasena/', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            password_actual: actual,
+            password_nueva: nueva
+          })
+        });
+
+        if (res.ok) {
+          localStorage.setItem(`user_password_${userId}`, nueva);
+          const usuariosGuardadosTemp = JSON.parse(localStorage.getItem('usuarios')) || [];
+          const uIdx = usuariosGuardadosTemp.findIndex(
+            (u) =>
+              (u.email && u.email.trim().toLowerCase() === (profile.email || '').trim().toLowerCase()) ||
+              String(u.id) === String(userId)
+          );
+          if (uIdx !== -1) {
+            usuariosGuardadosTemp[uIdx].password = nueva;
+            localStorage.setItem('usuarios', JSON.stringify(usuariosGuardadosTemp));
+          }
+          notificarExpiracionSesion();
+          return;
+        } else {
+          const errData = await res.json().catch(() => null);
+          const msg = errData?.error || 'La contraseña actual no es correcta.';
+          setPasswordError(msg);
+          setGuardandoPassword(false);
+          return;
+        }
+      } catch (err) {
+        // Backend no disponible, proceder con validación en almacenamiento local
+      }
+    }
+
+    // 2. Validación y actualización local en localStorage
+    const usuariosGuardados = JSON.parse(localStorage.getItem('usuarios')) || [];
+    const usuarioIdx = usuariosGuardados.findIndex(
+      (u) =>
+        (u.email && u.email.trim().toLowerCase() === (profile.email || '').trim().toLowerCase()) ||
+        String(u.id) === String(userId)
+    );
+
+    const customPassword = localStorage.getItem(`user_password_${userId}`);
+    let contrasenaEsperada = customPassword;
+
+    if (!contrasenaEsperada && usuarioIdx !== -1 && usuariosGuardados[usuarioIdx].password) {
+      contrasenaEsperada = usuariosGuardados[usuarioIdx].password;
+    }
+
+    if (!contrasenaEsperada) {
+      const defaults = {
+        admin: ['admin', 'admin123', '123456'],
+        aprendiz: ['aprendiz', 'aprendiz123', '123456'],
+        investigador: ['investigador', 'investigador123', '123456']
+      };
+      const validDefaults = defaults[userId] || [userId, '123456'];
+      if (!validDefaults.includes(actual)) {
+        setPasswordError('La contraseña actual es incorrecta. Por favor verifíquela.');
+        setGuardandoPassword(false);
+        return;
+      }
+    } else {
+      if (contrasenaEsperada !== actual) {
+        setPasswordError('La contraseña actual es incorrecta. Por favor verifíquela.');
+        setGuardandoPassword(false);
+        return;
+      }
+    }
+
+    // Guardar nueva contraseña en localStorage
+    localStorage.setItem(`user_password_${userId}`, nueva);
+    if (usuarioIdx !== -1) {
+      usuariosGuardados[usuarioIdx].password = nueva;
+      localStorage.setItem('usuarios', JSON.stringify(usuariosGuardados));
+    }
+
+    notificarExpiracionSesion();
   };
 
   return (
@@ -175,11 +341,10 @@ export default function Page() {
           <h2 className="font-bold text-slate-800 dark:text-slate-100">Información Personal</h2>
           <span
             id="edit-badge"
-            className={`px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider transition-colors ${
-              isEditing
+            className={`px-3 py-1 text-[10px] font-bold rounded-full uppercase tracking-wider transition-colors ${isEditing
                 ? 'bg-emerald-50 text-[#5be830] dark:bg-emerald-950/30'
                 : 'bg-slate-100 text-slate-400 dark:bg-zinc-800'
-            }`}
+              }`}
           >
             {isEditing ? 'Modo Edición' : 'Modo Lectura'}
           </span>
@@ -319,6 +484,189 @@ export default function Page() {
           </footer>
         </form>
       </section>
+
+      {/* Sección Seguridad y Contraseña */}
+      <section className="bg-white dark:bg-[#1a1f1a] rounded-2xl border border-slate-200 dark:border-zinc-800 shadow-sm overflow-hidden">
+        <header className="px-8 py-5 border-b border-slate-100 dark:border-zinc-800/80 flex justify-between items-center">
+          <section className="flex items-center gap-3">
+            <span className="material-symbols-outlined text-[#49e619] text-2xl">shield_person</span>
+            <aside>
+              <h2 className="font-bold text-slate-800 dark:text-slate-100 text-base">
+                Seguridad y Contraseña
+              </h2>
+              <p className="text-xs text-slate-500 dark:text-slate-400">
+                Para modificar tu contraseña debes ingresar primero tu contraseña actual
+              </p>
+            </aside>
+          </section>
+        </header>
+
+        <form className="p-8 space-y-6" onSubmit={handlePasswordSubmit}>
+          {passwordSuccess && (
+            <aside
+              className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3 flex items-center gap-3 text-emerald-800 text-sm font-semibold shadow-xs"
+              role="alert"
+            >
+              <span className="material-symbols-outlined text-emerald-600 text-lg">check_circle</span>
+              <p>{passwordSuccess}</p>
+            </aside>
+          )}
+
+          {passwordError && (
+            <aside
+              className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3 text-red-700 text-sm font-semibold shadow-xs"
+              role="alert"
+            >
+              <span className="material-symbols-outlined text-red-500 text-lg">error</span>
+              <p>{passwordError}</p>
+            </aside>
+          )}
+
+          <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            {/* Contraseña Actual */}
+            <p className="flex flex-col gap-1.5 m-0">
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
+                Contraseña Actual *
+              </label>
+              <aside className="relative">
+                <input
+                  type={showPasswordActual ? 'text' : 'password'}
+                  value={passwordActual}
+                  onChange={(e) => {
+                    setPasswordActual(e.target.value);
+                    if (passwordError) setPasswordError('');
+                  }}
+                  placeholder="Tu contraseña actual"
+                  required
+                  className="w-full rounded-xl border border-slate-200 dark:border-zinc-700 bg-transparent p-3 pr-11 text-sm focus:border-[#49e619] focus:ring-1 focus:ring-[#49e619] outline-none dark:text-slate-100 placeholder:text-slate-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordActual(!showPasswordActual)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors cursor-pointer flex items-center justify-center p-1 border-none bg-transparent"
+                  title={showPasswordActual ? 'Ocultar contraseña' : 'Ver contraseña'}
+                >
+                  <span className="material-symbols-outlined text-lg select-none">
+                    {showPasswordActual ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
+              </aside>
+            </p>
+
+            {/* Nueva Contraseña */}
+            <p className="flex flex-col gap-1.5 m-0">
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
+                Nueva Contraseña *
+              </label>
+              <aside className="relative">
+                <input
+                  type={showPasswordNueva ? 'text' : 'password'}
+                  value={passwordNueva}
+                  onChange={(e) => {
+                    setPasswordNueva(e.target.value);
+                    if (passwordError) setPasswordError('');
+                  }}
+                  placeholder="Mínimo 8 caracteres"
+                  minLength={8}
+                  required
+                  className="w-full rounded-xl border border-slate-200 dark:border-zinc-700 bg-transparent p-3 pr-11 text-sm focus:border-[#49e619] focus:ring-1 focus:ring-[#49e619] outline-none dark:text-slate-100 placeholder:text-slate-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordNueva(!showPasswordNueva)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors cursor-pointer flex items-center justify-center p-1 border-none bg-transparent"
+                  title={showPasswordNueva ? 'Ocultar contraseña' : 'Ver contraseña'}
+                >
+                  <span className="material-symbols-outlined text-lg select-none">
+                    {showPasswordNueva ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
+              </aside>
+            </p>
+
+            {/* Confirmar Nueva Contraseña */}
+            <p className="flex flex-col gap-1.5 m-0">
+              <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
+                Confirmar Nueva Contraseña *
+              </label>
+              <aside className="relative">
+                <input
+                  type={showPasswordConfirmar ? 'text' : 'password'}
+                  value={passwordConfirmar}
+                  onChange={(e) => {
+                    setPasswordConfirmar(e.target.value);
+                    if (passwordError) setPasswordError('');
+                  }}
+                  placeholder="Repite la nueva contraseña"
+                  minLength={8}
+                  required
+                  className="w-full rounded-xl border border-slate-200 dark:border-zinc-700 bg-transparent p-3 pr-11 text-sm focus:border-[#49e619] focus:ring-1 focus:ring-[#49e619] outline-none dark:text-slate-100 placeholder:text-slate-400"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordConfirmar(!showPasswordConfirmar)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-primary transition-colors cursor-pointer flex items-center justify-center p-1 border-none bg-transparent"
+                  title={showPasswordConfirmar ? 'Ocultar contraseña' : 'Ver contraseña'}
+                >
+                  <span className="material-symbols-outlined text-lg select-none">
+                    {showPasswordConfirmar ? 'visibility_off' : 'visibility'}
+                  </span>
+                </button>
+              </aside>
+            </p>
+          </section>
+
+          <footer className="pt-4 border-t border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-center gap-3">
+            <span className="text-xs text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <span className="material-symbols-outlined text-base text-slate-400">info</span>
+              La contraseña debe tener mínimo 8 caracteres y ser diferente a la actual.
+            </span>
+            <button
+              type="submit"
+              disabled={guardandoPassword}
+              className="w-full sm:w-auto px-7 py-2.5 bg-[#49E619] hover:bg-[#3dc407] disabled:opacity-60 text-black font-bold rounded-xl text-sm shadow-sm transition-all flex items-center justify-center gap-2 border-none cursor-pointer active:scale-[0.98]"
+            >
+              <span className="material-symbols-outlined text-lg">key</span>
+              <span>{guardandoPassword ? 'Actualizando...' : 'Cambiar Contraseña'}</span>
+            </button>
+          </footer>
+        </form>
+      </section>
+
+      {/* Modal de Aviso de Caducidad de Sesión */}
+      {mostrarAvisoExpiracion && (
+        <section className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 p-4 flex items-center justify-center animate-in fade-in duration-200">
+          <article className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 w-full max-w-md rounded-2xl shadow-2xl p-6 sm:p-8 text-center space-y-5">
+            <section className="w-16 h-16 mx-auto rounded-full bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shadow-inner">
+              <span className="material-symbols-outlined text-4xl">lock_reset</span>
+            </section>
+
+            <header className="space-y-2">
+              <h3 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white">
+                Contraseña Actualizada
+              </h3>
+              <p className="text-sm text-slate-600 dark:text-slate-300 leading-relaxed">
+                Tu contraseña ha sido modificada con éxito. Por motivos de seguridad, <strong className="text-slate-900 dark:text-white font-bold">tu sesión caducará</strong> y debes volver a iniciar sesión con tus nuevas credenciales.
+              </p>
+            </header>
+
+            <section className="p-3.5 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900/60 rounded-xl text-amber-800 dark:text-amber-300 text-xs flex items-center justify-center gap-2">
+              <span className="material-symbols-outlined text-base">timer</span>
+              <span>Redirigiendo a la pantalla de inicio de sesión en <strong className="text-sm font-bold">{segundosRestantes}</strong> segundos...</span>
+            </section>
+
+            <button
+              type="button"
+              onClick={cerrarSesionYRedirigir}
+              className="w-full h-12 bg-[#49E619] hover:bg-[#3dc407] text-black font-black rounded-xl text-sm transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98]"
+            >
+              <span>Iniciar sesión ahora</span>
+              <span className="material-symbols-outlined text-lg">login</span>
+            </button>
+          </article>
+        </section>
+      )}
     </main>
   );
 }
+
