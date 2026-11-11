@@ -1,17 +1,17 @@
 "use client";
 
 import { useState } from 'react';
-export default function FormMorbilidad({ onSubmit, onClose }) {
+export default function FormMorbilidad({ onSubmit, onClose, initialData = null }) {
   const [formData, setFormData] = useState({
-    responsable: '',
-    fecha: '',
-    galpon: '',
-    lote: '',
-    sintomas: '', // Modificado debido a que ya no es un select sino un textarea para ingresar los datos
-    afectacion: 'Leve',
-    cantidad: '',
-    accion: '',
-    observaciones: ''
+    responsable: initialData?.responsable || '',
+    fecha: initialData?.fecha || '',
+    galpon: initialData?.galpon || '',
+    lote: initialData?.lote || '',
+    sintomas: initialData?.sintomas || '', // Modificado debido a que ya no es un select sino un textarea para ingresar los datos
+    afectacion: initialData?.afectacion || 'Leve',
+    cantidad: initialData?.cantidad?.toString() || '',
+    accion: initialData?.accion || '',
+    observaciones: initialData?.observaciones || ''
   });
 
   const handleSintomasChange = (e) => {
@@ -44,7 +44,9 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
 
           <section className="flex items-center gap-2 mb-4">
             <span className="material-icons text-primary">assignment_add</span>
-            <h3 className="text-lg font-semibold">Nuevo Registro de Morbilidad</h3>
+            <h3 className="text-lg font-semibold">
+              {initialData ? 'Editar Registro de Morbilidad' : 'Nuevo Registro de Morbilidad'}
+            </h3>
           </section>
 
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -173,7 +175,7 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
               type="submit"
             >
               <span className="material-icons text-sm">save</span>
-              Guardar Registro
+              {initialData ? 'Actualizar Registro' : 'Guardar Registro'}
             </button>
           </form>
         </section>

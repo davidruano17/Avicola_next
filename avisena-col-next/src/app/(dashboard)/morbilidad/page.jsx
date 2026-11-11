@@ -7,6 +7,7 @@ import FormMorbilidad from '@/components/FormMorbilidad';
 
 export default function MorbilidadView() {
   const [showModal, setShowModal] = useState(false);
+  const [editRegistro, setEditRegistro] = useState(null);
   const [registros, setRegistros] = useState([]);
   const [buscar, setBuscar] = useState('');
   const [toast, setToast] = useState({ show: false, title: '', message: '' });
@@ -35,7 +36,8 @@ export default function MorbilidadView() {
     const loteFull = `Galpón ${formDataSubmit.galpon}`; // Se eliminó el lote puesto que ya no existe
 
     const nuevoRegistro = {
-      id: Date.now(),
+      ...editRegistro,
+      id: editRegistro?.id ?? Date.now(),
       responsable: formDataSubmit.responsable,
       fecha: formDataSubmit.fecha,
       galpon: formDataSubmit.galpon, // Se agregó galpón para que desde reportes se pueda diferenciar el galpón del cual se quiere generar un reporte
@@ -47,19 +49,35 @@ export default function MorbilidadView() {
       observaciones: formDataSubmit.observaciones
     };
 
-    const nuevosRegistros = [nuevoRegistro, ...registros];
+    const nuevosRegistros = editRegistro
+      ? registros.map((registro) => registro.id === editRegistro.id ? nuevoRegistro : registro)
+      : [nuevoRegistro, ...registros];
     localStorage.setItem('historialMorbilidad', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
 
-    showNotification('¡Registro Exitoso!', 'La incidencia de morbilidad ha sido documentada.');
+    showNotification(
+      editRegistro ? 'Registro actualizado' : '¡Registro Exitoso!',
+      editRegistro ? 'La incidencia de morbilidad ha sido actualizada.' : 'La incidencia de morbilidad ha sido documentada.'
+    );
+    setEditRegistro(null);
     setShowModal(false);
   };
 
   const eliminarRegistro = (registroId) => {
+    const confirmado = window.confirm('¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.');
+    if (!confirmado) return;
+
     const nuevosRegistros = registros.filter((registro) => registro.id !== registroId);
     localStorage.setItem('historialMorbilidad', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
     showNotification('Registro eliminado', 'El registro de morbilidad fue borrado correctamente.');
+  };
+
+  const editarRegistro = (registroId) => {
+    const registro = registros.find((item) => item.id === registroId);
+    if (!registro) return;
+    setEditRegistro(registro);
+    setShowModal(true);
   };
 
   const getBadgeColor = (afectacion) => {
@@ -137,7 +155,10 @@ export default function MorbilidadView() {
           </section>
           <section className="flex justify-end items-center">
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                setEditRegistro(null);
+                setShowModal(true);
+              }}
               className="flex items-center justify-center gap-2 rounded-lg h-14 px-8 min-w-[220px] bg-primary hover:bg-[#3dbd14] text-black text-sm font-black shadow-lg shadow-primary/20 active:scale-[0.98] transition-all border-none cursor-pointer"
             >
               <span className="material-icons">add_circle</span>
@@ -148,7 +169,14 @@ export default function MorbilidadView() {
 
         {/* Formulario Modal */}
         {showModal && (
-          <FormMorbilidad onSubmit={guardarRegistro} onClose={() => setShowModal(false)} />
+          <FormMorbilidad
+            onSubmit={guardarRegistro}
+            onClose={() => {
+              setShowModal(false);
+              setEditRegistro(null);
+            }}
+            initialData={editRegistro}
+          />
         )}
 
         <section className="w-full space-y-8">
@@ -194,6 +222,7 @@ export default function MorbilidadView() {
                     <th className="px-6 py-4">Acción</th>
                     <th className="px-6 py-4">Responsable</th>
                     <th className="px-6 py-4 text-center">Tratamiento</th>
+                    <th className="px-6 py-4 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-primary/10 text-sm">
@@ -243,13 +272,24 @@ export default function MorbilidadView() {
                           </button>
                         </td>
                         <td className="px-6 py-4 text-center">
+                          <div className="flex items-center justify-center gap-2">
+                          <button
+                            onClick={() => editarRegistro(registro.id)}
+                            className="p-2 rounded-lg bg-blue-100 text-blue-500 hover:bg-blue-200 transition-colors"
+                            title="Editar"
+                            type="button"
+                          >
+                            <span className="material-symbols-outlined text-lg">edit</span>
+                          </button>
                           <button
                             onClick={() => eliminarRegistro(registro.id)}
-                            className="text-red-500 hover:text-red-700 transition-colors"
+                            className="p-2 rounded-lg bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
                             title="Eliminar"
+                            type="button"
                           >
-                            <span className="material-icons w-4 h-4 inline">delete</span>
+                            <span className="material-symbols-outlined text-lg">delete</span>
                           </button>
+                          </div>
                         </td>
                       </tr>
                     ))

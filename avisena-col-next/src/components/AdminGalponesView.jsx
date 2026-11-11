@@ -88,6 +88,9 @@ export default function AdminGalponesView() {
   };
 
   const eliminarRegistro = (registroId) => {
+    const confirmado = window.confirm('¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.');
+    if (!confirmado) return;
+
     const nuevosRegistros = registros.filter((registro) => registro.id !== registroId);
     localStorage.setItem('historialgalpones', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
@@ -429,19 +432,26 @@ export default function AdminGalponesView() {
                         <td className="px-6 py-4 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <button
-                              onClick={() => editarRegistro(registro.id)}
-                              className="p-2 rounded-lg bg-yellow-100 text-yellow-500 hover:bg-yellow-200 transition-colors"
-                              title="Editar"
-                            >
-                              <span className="material-symbols-outlined text-lg">edit</span>
-                            </button>
-                            <button
-                              onClick={() => eliminarRegistro(registro.id)}
-                              className="p-2 rounded-lg bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
-                              title="Eliminar"
-                            >
-                              <span className="material-symbols-outlined text-lg">delete</span>
-                            </button>
+                                onClick={() => editarRegistro(registro.id)}
+                                className="p-2 rounded-lg bg-blue-100 text-blue-500 hover:bg-blue-200 transition-colors"
+                                title="Editar"
+                                type="button"
+                              >
+                                <span className="material-symbols-outlined text-lg">
+                                  edit
+                                </span>
+                              </button>
+
+                              <button
+                                onClick={() => eliminarRegistro(registro.id)}
+                                className="p-2 rounded-lg bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
+                                title="Eliminar"
+                                type="button"
+                              >
+                                <span className="material-symbols-outlined text-lg">
+                                  delete
+                                </span>
+                          </button>
                           </div>
                         </td>
                       </tr>
@@ -600,4 +610,3 @@ export default function AdminGalponesView() {
     </section>
   )
 }
-
