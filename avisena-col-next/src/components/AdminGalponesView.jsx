@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { jsPDF } from 'jspdf';
+import { PDFDocument, rgb } from 'pdf-lib';
 import FormLoteNuevo from '@/components/formlotenuevo';
 
 export default function AdminGalponesView() {
@@ -13,6 +14,7 @@ export default function AdminGalponesView() {
   const [toast, setToast] = useState({ show: false, title: '', message: '' });
   const [detalleRegistro, setDetalleRegistro] = useState(null);
   const [showDetalleModal, setShowDetalleModal] = useState(false);
+  const [registroPendienteEliminar, setRegistroPendienteEliminar] = useState(null);
   const itemsPerPage = 5;
 
   useEffect(() => {
@@ -88,12 +90,16 @@ export default function AdminGalponesView() {
   };
 
   const eliminarRegistro = (registroId) => {
-    const confirmado = window.confirm('¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.');
-    if (!confirmado) return;
+    setRegistroPendienteEliminar(registroId);
+  };
 
-    const nuevosRegistros = registros.filter((registro) => registro.id !== registroId);
+  const confirmarEliminacion = () => {
+    if (registroPendienteEliminar === null) return;
+
+    const nuevosRegistros = registros.filter((registro) => registro.id !== registroPendienteEliminar);
     localStorage.setItem('historialgalpones', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
+    setRegistroPendienteEliminar(null);
     showNotification('Registro eliminado', 'El registro del lote fue borrado correctamente.');
   };
 
@@ -120,23 +126,7 @@ export default function AdminGalponesView() {
     return certificado.data || '';
   };
 
-  const downloadCertificado = (certificado) => {
-    const dataUrl = getCertificadoDataUrl(certificado);
-    if (!dataUrl) {
-      showNotification('Sin archivo', 'No hay certificado disponible para descargar.');
-      return;
-    }
-
-    const fileName = getCertificadoName(certificado) || `certificado_${Date.now()}`;
-    const link = document.createElement('a');
-    link.setAttribute('href', dataUrl);
-    link.setAttribute('download', fileName);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const downloadReport = (registro, format) => {
+  const downloadReport = async (registro, format) => {
     if (!registro) return;
 
     const reportData = {
@@ -153,36 +143,204 @@ export default function AdminGalponesView() {
     };
 
     if (format === 'pdf') {
+      const certificado = registro.certificados;
+      const certificadoData = getCertificadoDataUrl(certificado);
       const doc = new jsPDF();
-      doc.setFontSize(16);
-      doc.text('Informe de Galpón', 14, 20);
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 14;
+      const green = [57, 169, 0];
 
-      const fields = [
-        ['Fecha de ingreso', reportData.fecha],
-        ['Hora de ingreso', reportData.hora],
-        ['Galpón', reportData.galpon],
-        ['Peso promedio', reportData.pesoPromedio],
-        ['Semana de vida', reportData.semanaDeVida],
-        ['Número de aves', reportData.numeroAves],
-        ['Línea de aves', reportData.linea],
-        ['Responsable', reportData.responsable],
-        ['Certificados', reportData.certificados],
-        ['Observaciones', reportData.observaciones],
+      doc.setFillColor(...green);
+      doc.rect(0, 0, pageWidth, 7, 'F');
+      doc.setTextColor(25, 25, 25);
+      doc.setFont('times', 'bold');
+      doc.setFontSize(10);
+      doc.text('SERVICIO NACIONAL DE APRENDIZAJE - SENA', pageWidth / 2, 20, { align: 'center' });
+      doc.setFont('times', 'normal');
+      doc.setFontSize(9);
+      doc.text('Informe de seguimiento avícola', pageWidth / 2, 27, { align: 'center' });
+
+      let logoUrl;
+      try {
+        const logoResponse = await fetch('/assets/images/logo-sena-verde-complementario-svg-2022.svg');
+        if (!logoResponse.ok) {
+          throw new Error('No se pudo cargar el logotipo del SENA para el PDF.');
+        }
+        logoUrl = URL.createObjectURL(await logoResponse.blob());
+        const logoImage = new Image();
+        await new Promise((resolve, reject) => {
+          logoImage.onload = resolve;
+          logoImage.onerror = () => reject(new Error('No se pudo preparar el logotipo del SENA.'));
+          logoImage.src = logoUrl;
+        });
+        const logoCanvas = document.createElement('canvas');
+        logoCanvas.width = logoImage.naturalWidth;
+        logoCanvas.height = logoImage.naturalHeight;
+        logoCanvas.getContext('2d').drawImage(logoImage, 0, 0);
+        doc.addImage(logoCanvas.toDataURL('image/png'), 'PNG', pageWidth - margin - 22, 10, 22, 22);
+      } catch (error) {
+        console.error('No se pudo preparar el logotipo del SENA para el PDF.', error);
+        showNotification('No se pudo generar el PDF', error.message || 'No se pudo preparar el logotipo del SENA.');
+        return;
+      } finally {
+        if (logoUrl) URL.revokeObjectURL(logoUrl);
+      }
+
+      doc.setDrawColor(...green);
+      doc.setLineWidth(0.7);
+      doc.line(margin, 34, pageWidth - margin, 34);
+      doc.setFontSize(15);
+      doc.text('INFORME DE REGISTRO DE GALPÓN', pageWidth / 2, 45, { align: 'center' });
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(90, 90, 90);
+      doc.text(`Evidencia | ${reportData.fecha || 'Fecha no registrada'}`, pageWidth / 2, 52, { align: 'center' });
+
+      const drawField = (x, y, width, label, value, height = 23) => {
+        doc.setFillColor(247, 249, 250);
+        doc.setDrawColor(220, 226, 232);
+        doc.roundedRect(x, y, width, height, 2, 2, 'FD');
+        doc.setFont('times', 'bold');
+        doc.setFontSize(8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(label.toUpperCase(), x + 4, y + 6);
+        doc.setFont('times', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(35, 45, 55);
+        const displayValue = value === ''
+          ? ''
+          : value === null || value === undefined
+            ? 'No registrado'
+            : String(value);
+        if (displayValue) {
+          const lines = doc.splitTextToSize(displayValue, width - 8);
+          doc.text(lines.slice(0, Math.max(1, Math.floor((height - 9) / 4.5))), x + 4, y + 14);
+        }
+      };
+
+      const gap = 5;
+      const contentWidth = pageWidth - margin * 2;
+      const detailsWidth = contentWidth;
+      const columnWidth = (contentWidth - gap) / 2;
+      const pairedFields = [
+        [['Fecha de ingreso', reportData.fecha], ['Hora de ingreso', reportData.hora]],
+        [['Galpón', reportData.galpon], ['Peso promedio', reportData.pesoPromedio]],
+        [['Semana de vida', reportData.semanaDeVida], ['Número de aves', reportData.numeroAves]],
+        [['Línea de aves', reportData.linea], ['Responsable', reportData.responsable]],
       ];
 
-      let y = 32;
-      doc.setFontSize(11);
-      fields.forEach(([label, value]) => {
-        const text = `${label}: ${value || 'N/A'}`;
-        doc.text(text, 14, y);
-        y += 10;
-        if (y > 280) {
-          doc.addPage();
-          y = 20;
-        }
+      let y = 62;
+      pairedFields.forEach((row) => {
+        drawField(margin, y, columnWidth, row[0][0], row[0][1]);
+        drawField(margin + columnWidth + gap, y, columnWidth, row[1][0], row[1][1]);
+        y += 26;
       });
 
-      doc.save(`informe_${registro.galpon || 'galpon'}_${registro.id}.pdf`);
+      const observationLines = doc.splitTextToSize(
+        String(reportData.observaciones || 'No hay observaciones registradas.'),
+        contentWidth - 8
+      );
+      const observationHeight = 75;
+      drawField(margin, y, contentWidth, 'Observaciones', '', observationHeight);
+      doc.setFont('times', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(35, 45, 55);
+      doc.text(observationLines.slice(0, 11), margin + 4, y + 14);
+
+      doc.setFillColor(...green);
+      doc.rect(0, pageHeight - 7, pageWidth, 7, 'F');
+
+      const pdfBytes = new Uint8Array(doc.output('arraybuffer'));
+
+      try {
+        const pdfCombinado = await PDFDocument.load(pdfBytes);
+
+        if (certificadoData) {
+          const base64 = certificadoData.split(',')[1];
+          if (!base64) throw new Error('El certificado no tiene un contenido válido.');
+          const certificadoBytes = Uint8Array.from(atob(base64), (character) => character.charCodeAt(0));
+          const nombreCertificado = getCertificadoName(certificado).toLowerCase();
+          const tipoCertificado = typeof certificado === 'object' ? certificado.type : '';
+          const certificadoPage = pdfCombinado.addPage([595.28, 841.89]);
+          const certificateMargin = 36;
+          const certificateTop = 72;
+          const certificateBottom = 36;
+          const boxWidth = certificadoPage.getWidth() - certificateMargin * 2;
+          const boxHeight = certificadoPage.getHeight() - certificateTop - certificateBottom;
+          certificadoPage.drawRectangle({
+            x: 0,
+            y: certificadoPage.getHeight() - 8,
+            width: certificadoPage.getWidth(),
+            height: 8,
+            color: rgb(green[0] / 255, green[1] / 255, green[2] / 255),
+          });
+          certificadoPage.drawText('CERTIFICADO ADJUNTO', {
+            x: certificateMargin,
+            y: certificadoPage.getHeight() - 42,
+            size: 14,
+            color: rgb(0.18, 0.24, 0.31),
+          });
+          certificadoPage.drawText(getCertificadoName(certificado), {
+            x: certificateMargin,
+            y: certificadoPage.getHeight() - 60,
+            size: 9,
+            color: rgb(0.39, 0.45, 0.53),
+            maxWidth: boxWidth,
+          });
+
+          if (tipoCertificado === 'application/pdf' || nombreCertificado.endsWith('.pdf')) {
+            const [paginaCertificado] = await pdfCombinado.embedPdf(certificadoBytes, [0]);
+            const scale = Math.min(boxWidth / paginaCertificado.width, boxHeight / paginaCertificado.height);
+            const drawWidth = paginaCertificado.width * scale;
+            const drawHeight = paginaCertificado.height * scale;
+            certificadoPage.drawPage(paginaCertificado, {
+              x: certificateMargin + (boxWidth - drawWidth) / 2,
+              y: certificateBottom + (boxHeight - drawHeight) / 2,
+              width: drawWidth,
+              height: drawHeight,
+            });
+          } else if (tipoCertificado === 'image/png' || nombreCertificado.endsWith('.png')) {
+            const imagen = await pdfCombinado.embedPng(certificadoBytes);
+            const scale = Math.min(boxWidth / imagen.width, boxHeight / imagen.height);
+            const drawWidth = imagen.width * scale;
+            const drawHeight = imagen.height * scale;
+            certificadoPage.drawImage(imagen, {
+              x: certificateMargin + (boxWidth - drawWidth) / 2,
+              y: certificateBottom + (boxHeight - drawHeight) / 2,
+              width: drawWidth,
+              height: drawHeight,
+            });
+          } else if (tipoCertificado === 'image/jpeg' || tipoCertificado === 'image/jpg' || /\.(jpe?g)$/.test(nombreCertificado)) {
+            const imagen = await pdfCombinado.embedJpg(certificadoBytes);
+            const scale = Math.min(boxWidth / imagen.width, boxHeight / imagen.height);
+            const drawWidth = imagen.width * scale;
+            const drawHeight = imagen.height * scale;
+            certificadoPage.drawImage(imagen, {
+              x: certificateMargin + (boxWidth - drawWidth) / 2,
+              y: certificateBottom + (boxHeight - drawHeight) / 2,
+              width: drawWidth,
+              height: drawHeight,
+            });
+          } else {
+            throw new Error('El certificado debe ser un PDF, JPG o PNG para incluirlo en la segunda hoja.');
+          }
+        }
+
+        const finalPdf = await pdfCombinado.save();
+        const blob = new Blob([finalPdf], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `informe_${registro.galpon || 'galpon'}_${registro.id}.pdf`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
+      } catch (error) {
+        console.error('No se pudo generar el informe PDF con el certificado en una hoja separada.', error);
+        showNotification('No se pudo generar el PDF', error.message || 'Revisa el archivo del certificado e inténtalo de nuevo.');
+      }
       return;
     }
 
@@ -220,45 +378,6 @@ export default function AdminGalponesView() {
       link.click();
       document.body.removeChild(link);
     }
-  };
-
-  const printDetalleRegistro = (registro) => {
-    if (!registro) return;
-
-    const content = `
-      <html>
-        <head>
-          <title>Informe de Galpón</title>
-          <style>
-            body { font-family: Arial, sans-serif; padding: 24px; color: #111; }
-            h1 { margin-bottom: 16px; }
-            p { margin: 8px 0; }
-            .field { margin-bottom: 12px; }
-            .field strong { display: block; margin-bottom: 4px; text-transform: uppercase; font-size: 12px; color: #555; }
-          </style>
-        </head>
-        <body>
-          <h1>Informe de Galpón</h1>
-          <div class="field"><strong>Fecha de ingreso</strong><p>${formatDate(registro.fecha)}</p></div>
-          <div class="field"><strong>Hora de ingreso</strong><p>${registro.hora}</p></div>
-          <div class="field"><strong>Galpón</strong><p>${registro.galpon}</p></div>
-          <div class="field"><strong>Peso promedio</strong><p>${registro.pesoPromedio}</p></div>
-          <div class="field"><strong>Semana de vida</strong><p>${registro.semanadevida}</p></div>
-          <div class="field"><strong>Número de aves</strong><p>${registro.numeroAves}</p></div>
-          <div class="field"><strong>Línea de aves</strong><p>${registro.linea}</p></div>
-          <div class="field"><strong>Responsable</strong><p>${registro.responsable}</p></div>
-          <div class="field"><strong>Certificados</strong><p>${getCertificadoName(registro.certificados)}</p></div>
-          <div class="field"><strong>Observaciones</strong><p>${registro.observaciones || 'No hay observaciones registradas.'}</p></div>
-        </body>
-      </html>
-    `;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    printWindow.document.write(content);
-    printWindow.document.close();
-    printWindow.focus();
-    printWindow.print();
   };
 
   const exportarCSV = () => {
@@ -521,41 +640,16 @@ export default function AdminGalponesView() {
                       <div className="rounded-3xl bg-slate-50 dark:bg-zinc-950 p-4 border border-slate-200 dark:border-zinc-800 mb-4">
                         <h4 className="text-sm font-bold uppercase text-slate-500 mb-2">Certificados</h4>
                         <p className="text-sm text-slate-700 dark:text-slate-300 mb-3">{getCertificadoName(detalleRegistro.certificados) || 'N/A'}</p>
-                        {getCertificadoDataUrl(detalleRegistro.certificados) && (
-                          <div className="grid gap-2 sm:grid-cols-2">
-                            <button
-                              type="button"
-                              onClick={() => downloadCertificado(detalleRegistro.certificados)}
-                              className="w-full bg-primary hover:bg-[#3dbd14] text-black px-3 py-2 rounded-2xl font-semibold transition-all text-sm"
-                            >
-                              Descargar
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => window.open(getCertificadoDataUrl(detalleRegistro.certificados), '_blank')}
-                              className="w-full bg-slate-200 dark:bg-zinc-900 text-slate-800 dark:text-slate-200 px-3 py-2 rounded-2xl font-semibold transition-all text-sm"
-                            >
-                              Abrir
-                            </button>
-                          </div>
-                        )}
                       </div>
                     </div>
 
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 pt-3 border-t border-slate-200 dark:border-zinc-800">
-                      <button
-                        type="button"
-                        onClick={() => printDetalleRegistro(detalleRegistro)}
-                        className="w-full bg-slate-300 dark:bg-zinc-800 text-slate-900 dark:text-white px-2 py-2 rounded-xl font-semibold text-xs transition-all"
-                      >
-                        Imprimir
-                      </button>
+                    <div className="mt-3 pt-3 border-t border-slate-200 dark:border-zinc-800">
                       <button
                         type="button"
                         onClick={() => downloadReport(detalleRegistro, 'pdf')}
-                        className="w-full bg-[#1c64f2] hover:bg-[#1653c3] text-white px-2 py-2 rounded-xl font-semibold text-xs transition-all"
+                        className="w-full bg-[#1c64f2] hover:bg-[#1653c3] text-white px-4 py-3 rounded-xl font-semibold text-sm transition-all"
                       >
-                        PDF
+                        Descargar PDF
                       </button>
                     </div>
                   </div>
@@ -595,6 +689,41 @@ export default function AdminGalponesView() {
             </section>
           </section>
         </section>
+
+        {registroPendienteEliminar !== null && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="presentation">
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="confirmar-eliminar-galpon-titulo"
+              className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-background-dark"
+            >
+              <span className="material-symbols-outlined mb-3 text-5xl text-red-500">warning</span>
+              <h2 id="confirmar-eliminar-galpon-titulo" className="mb-2 text-xl font-bold text-slate-900 dark:text-white">
+                ¿Estás seguro de eliminar este registro?
+              </h2>
+              <p className="mb-6 text-sm text-slate-500 dark:text-slate-300">
+                Esta acción no se puede deshacer.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRegistroPendienteEliminar(null)}
+                  className="rounded-lg border border-slate-300 px-5 py-2 font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmarEliminacion}
+                  className="rounded-lg bg-red-500 px-5 py-2 font-semibold text-white transition-colors hover:bg-red-600"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
 
         {/* Toast Notification */}
         {toast.show && (
