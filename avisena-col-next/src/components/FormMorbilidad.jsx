@@ -1,6 +1,13 @@
 "use client";
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+
+const nombresPerfilPorUsuario = {
+  admin: 'Instructor Líder (Admin)',
+  aprendiz: 'Aprendiz Sena',
+  investigador: 'Instructor Investigador',
+};
+
 export default function FormMorbilidad({ onSubmit, onClose, initialData = null }) {
   const [formData, setFormData] = useState({
     responsable: initialData?.responsable || '',
@@ -13,6 +20,28 @@ export default function FormMorbilidad({ onSubmit, onClose, initialData = null }
     accion: initialData?.accion || '',
     observaciones: initialData?.observaciones || ''
   });
+
+  useEffect(() => {
+    if (initialData) return;
+
+    const userId = localStorage.getItem('user_id') || 'admin';
+    const nombrePorDefecto = nombresPerfilPorUsuario[userId] || nombresPerfilPorUsuario.admin;
+    const perfilGuardado = localStorage.getItem(`user_profile_${userId}`);
+
+    if (perfilGuardado) {
+      try {
+        const perfil = JSON.parse(perfilGuardado);
+        if (typeof perfil?.name === 'string' && perfil.name.trim()) {
+          setFormData((prev) => ({ ...prev, responsable: perfil.name.trim() }));
+          return;
+        }
+      } catch (error) {
+        console.error('No se pudo cargar el responsable desde el perfil.', error);
+      }
+    }
+
+    setFormData((prev) => ({ ...prev, responsable: nombrePorDefecto }));
+  }, [initialData]);
 
   const handleSintomasChange = (e) => {
     const options = e.target.options;
@@ -60,6 +89,7 @@ export default function FormMorbilidad({ onSubmit, onClose, initialData = null }
                   placeholder="Nombre del técnico"
                   required
                   type="text"
+                  readOnly
                   value={formData.responsable}
                   onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
                 />
