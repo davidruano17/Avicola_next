@@ -514,7 +514,7 @@ export default function FinanzasAvicolas() {
 
         {/* CHARTS GRAPHICS: 1. FLUJO DE EFECTIVO MENSUAL */}
         <section className="bg-white p-6 rounded-2xl border border-slate-100 shadow-sm flex flex-col justify-between">
-          <h3 className="text-base font-bold text-slate-900 mb-4">Flujo de Efectivo Mensual</h3>
+          <h3 className="text-base font-bold text-slate-900 mb-4">Balance Financiero Mensual</h3>
           <span className="h-48 flex items-end justify-around px-1 pb-2 bg-slate-50/60 rounded-xl border border-slate-100/80 block overflow-x-auto">
             {datosGraficaFormateados.map((item, idx) => (
               <span key={idx} className="flex flex-col items-center gap-2 h-full justify-end min-w-[45px] sm:w-12 block">
