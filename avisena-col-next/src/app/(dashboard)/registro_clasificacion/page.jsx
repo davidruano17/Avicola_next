@@ -539,16 +539,16 @@ export default function ClasificacionView() {
 
         {/* MODAL DE REGISTRO */}
         {modals.registro && (
-          <span className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 block">
-            <article className="bg-white rounded-3xl w-full max-w-2xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
-              <header className="flex justify-between items-center px-6 py-4 border-b bg-gray-50 shrink-0">
-                <h2 className="text-lg font-bold text-gray-900">
+          <span className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-0 sm:p-4 z-50 block overflow-hidden">
+            <article className="bg-white rounded-none sm:rounded-3xl w-full max-w-6xl overflow-hidden shadow-2xl animate-in fade-in zoom-in-95 duration-200 h-[100dvh] sm:h-auto max-h-[100dvh] sm:max-h-[92dvh] flex flex-col">
+              <header className="flex justify-between items-center px-4 sm:px-6 py-3 sm:py-4 border-b bg-gray-50 shrink-0">
+                <h2 className="text-base sm:text-lg font-bold text-gray-900">
                   {step === 1 ? "1. Clasificación de Huevos" : "2. Información General y Cierre"}
                 </h2>
                 <button className="text-gray-400 hover:text-gray-600 text-2xl font-bold p-1" type="button" onClick={() => closeModal('registro')}>&times;</button>
               </header>
 
-              <form onSubmit={step === 2 ? handleSave : (e) => e.preventDefault()} className="p-6 overflow-y-auto flex-1 space-y-5">
+              <form onSubmit={step === 2 ? handleSave : (e) => e.preventDefault()} className="p-3 sm:p-6 overflow-y-auto overflow-x-hidden flex-1 space-y-4 sm:space-y-5">
                 {step === 1 && (
                   <section className="space-y-5">
                     {produccionOrigen ? (
@@ -606,7 +606,7 @@ export default function ClasificacionView() {
                         </div>
                       )
                     )}
-                    <section className="overflow-x-auto border border-gray-150 rounded-2xl shadow-sm block">
+                    <section className="hidden lg:block border border-gray-150 rounded-2xl shadow-sm overflow-hidden">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="bg-slate-50 text-xs font-bold text-gray-455 uppercase border-b border-gray-200">
@@ -689,13 +689,67 @@ export default function ClasificacionView() {
                       </table>
                     </section>
 
-                    <section className="grid grid-cols-3 gap-4 bg-slate-50/60 rounded-2xl p-4 border border-gray-150 shadow-sm">
-                      <span className="text-center border-r border-gray-200 block">
+                    <section className="lg:hidden space-y-3">
+                      {CLASIFICACIONES.map(tipo => {
+                        const row = tableData[tipo] || { hoy: "", anterior: 0, precio: PRECIOS_PANAL_BASE[tipo] };
+                        const tieneIngreso = row.hoy !== "" && !isNaN(parseInt(row.hoy));
+                        const hoy = parseInt(row.hoy) || 0;
+                        const anterior = parseInt(row.anterior) || 0;
+                        const acum = tieneIngreso ? hoy + anterior : 0;
+                        const panalesAcumulados = Math.floor(acum / 30);
+                        const sub = panalesAcumulados * cleanNum(row.precio);
+                        const infoPanal = formatPanalesOriginal(acum);
+
+                        return (
+                          <article key={tipo} className="rounded-2xl border border-slate-200 bg-white p-3 shadow-sm">
+                            <header className="flex items-center justify-between gap-3 border-b border-slate-100 pb-2">
+                              <strong className="text-base font-black text-slate-800" translate="no">{tipo}</strong>
+                              <span className="text-sm font-extrabold text-slate-900">{formatCurrency(sub)}</span>
+                            </header>
+                            <div className="grid grid-cols-2 gap-3 pt-3">
+                              <label className="flex flex-col gap-1">
+                                <span className="text-[11px] font-bold uppercase text-slate-500">Hoy (uds)</span>
+                                <input
+                                  type="number"
+                                  className="w-full min-w-0 rounded-lg border border-gray-300 p-2 text-center font-semibold focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500"
+                                  value={row.hoy}
+                                  min="0"
+                                  placeholder="0"
+                                  onChange={(e) => handleTableChange(tipo, 'hoy', e.target.value)}
+                                />
+                              </label>
+                              <div className="flex flex-col gap-1">
+                                <span className="text-[11px] font-bold uppercase text-slate-500">Conversión</span>
+                                <span className="flex min-h-10 flex-col items-center justify-center rounded-lg bg-emerald-50 px-2 py-1 text-center">
+                                  <span className="text-xs font-extrabold text-emerald-700">{infoPanal.principal}</span>
+                                  <span className="text-[10px] font-bold text-emerald-700">{infoPanal.sobrante}</span>
+                                </span>
+                              </div>
+                              <div className="rounded-lg bg-slate-50 p-2">
+                                <span className="block text-[10px] font-bold uppercase text-slate-500">Anterior</span>
+                                <span className="font-semibold text-slate-700">{anterior} uds</span>
+                              </div>
+                              <div className="rounded-lg bg-slate-50 p-2">
+                                <span className="block text-[10px] font-bold uppercase text-slate-500">Acumulado</span>
+                                <span className="font-semibold text-slate-700">{tieneIngreso ? acum : 0} uds</span>
+                              </div>
+                              <div className="col-span-2 rounded-lg bg-slate-50 p-2">
+                                <span className="text-[10px] font-bold uppercase text-slate-500">Precio por panal: </span>
+                                <span className="font-semibold text-slate-700">$ {row.precio}</span>
+                              </div>
+                            </div>
+                          </article>
+                        );
+                      })}
+                    </section>
+
+                    <section className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4 bg-slate-50/60 rounded-2xl p-3 sm:p-4 border border-gray-150 shadow-sm">
+                      <span className="text-center border-r-0 sm:border-r border-gray-200 block">
                         <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Unidades Totales</span>
                         <strong className="text-base font-black text-slate-800 mt-1 block">{totales.unidades} uds</strong>
                         <span className="text-[11px] text-gray-500 font-medium" translate="no">({obtenerTextoDesglose(tableData)})</span>
                       </span>
-                      <span className="text-center border-r border-gray-200 px-1 block">
+                      <span className="text-center border-r-0 sm:border-r border-gray-200 px-1 block">
                         <span className="block text-[10px] font-bold text-gray-400 uppercase tracking-wider">Panales Totales</span>
                         <strong className="text-xs font-bold text-green-700 mt-1.5 block leading-tight">{formatExactPanalesText(totales.unidades)}</strong>
                       </span>
@@ -737,7 +791,7 @@ export default function ClasificacionView() {
 
                 {step === 2 && (
                   <section className="space-y-5">
-                    <fieldset className="grid grid-cols-2 gap-4 border-none p-0">
+                    <fieldset className="grid grid-cols-1 sm:grid-cols-2 gap-4 border-none p-0">
                       <label className="flex flex-col gap-1">
                         <span className="text-xs font-bold text-gray-600 uppercase">Consecutivo</span>
                         <input type="text" value={`REC-${String(obtenerSiguienteId()).padStart(3, '0')}`} readOnly className="p-2.5 bg-gray-100 border rounded-xl font-bold text-green-600 outline-none" />
@@ -782,7 +836,7 @@ export default function ClasificacionView() {
                         />
                       </label>
 
-                      <span className="col-span-2 bg-slate-50 border border-gray-200 rounded-2xl p-4 space-y-2 block text-xs">
+                      <span className="col-span-1 sm:col-span-2 bg-slate-50 border border-gray-200 rounded-2xl p-4 space-y-2 block text-xs">
                         <span className="block text-gray-600">
                           <strong className="font-bold text-slate-800 uppercase block mb-0.5">Producción Actual:</strong>
                           Se ingresaron <strong className="text-slate-900">{totales.unidades} uds</strong> <span translate="no">({obtenerTextoDesglose(tableData)})</span>.
@@ -795,14 +849,14 @@ export default function ClasificacionView() {
                         </span>
                       </span>
 
-                      <label className="flex flex-col gap-1 col-span-2">
+                      <label className="flex flex-col gap-1 col-span-1 sm:col-span-2">
                         <span className="text-xs font-bold text-gray-600 uppercase">Observaciones</span>
                         <textarea rows="2" value={generalInfo.observaciones} onChange={e => setGeneralInfo({ ...generalInfo, observaciones: e.target.value })} className="p-2.5 border rounded-xl focus:ring-2 focus:ring-green-500 outline-none resize-none"></textarea>
                       </label>
                     </fieldset>
-                    <footer className="flex justify-between items-center border-t pt-4">
+                    <footer className="flex flex-col-reverse sm:flex-row sm:justify-between sm:items-center gap-3 border-t pt-4">
                       <button type="button" className="text-gray-500 hover:text-gray-700 font-bold text-sm" onClick={() => setStep(1)}>&larr; Volver</button>
-                      <span className="flex gap-3">
+                      <span className="flex flex-col-reverse sm:flex-row gap-2 sm:gap-3">
                         <button type="button" className="bg-red-50 hover:bg-red-100 text-red-600 font-bold py-2.5 px-4 rounded-xl transition-colors text-sm" onClick={handleLimpiarFormulario}>
                           BORRAR TODO
                         </button>
