@@ -9,6 +9,7 @@ export default function MorbilidadView() {
   const [showModal, setShowModal] = useState(false);
   const [editRegistro, setEditRegistro] = useState(null);
   const [registros, setRegistros] = useState([]);
+  const [registroPendienteEliminar, setRegistroPendienteEliminar] = useState(null);
   const [buscar, setBuscar] = useState('');
   const [toast, setToast] = useState({ show: false, title: '', message: '' });
   const router = useRouter();
@@ -64,12 +65,16 @@ export default function MorbilidadView() {
   };
 
   const eliminarRegistro = (registroId) => {
-    const confirmado = window.confirm('¿Estás seguro de que deseas eliminar este registro? Esta acción no se puede deshacer.');
-    if (!confirmado) return;
+    setRegistroPendienteEliminar(registroId);
+  };
 
-    const nuevosRegistros = registros.filter((registro) => registro.id !== registroId);
+  const confirmarEliminacion = () => {
+    if (registroPendienteEliminar === null) return;
+
+    const nuevosRegistros = registros.filter((registro) => registro.id !== registroPendienteEliminar);
     localStorage.setItem('historialMorbilidad', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
+    setRegistroPendienteEliminar(null);
     showNotification('Registro eliminado', 'El registro de morbilidad fue borrado correctamente.');
   };
 
@@ -330,6 +335,41 @@ export default function MorbilidadView() {
             </section>
           </section>
         </section>
+
+        {registroPendienteEliminar !== null && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="presentation">
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="confirmar-eliminar-morbilidad-titulo"
+              className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-background-dark"
+            >
+              <span className="material-symbols-outlined mb-3 text-5xl text-red-500">warning</span>
+              <h2 id="confirmar-eliminar-morbilidad-titulo" className="mb-2 text-xl font-bold text-slate-900 dark:text-white">
+                ¿Estás seguro de eliminar este registro?
+              </h2>
+              <p className="mb-6 text-sm text-slate-500 dark:text-slate-300">
+                Esta acción no se puede deshacer.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRegistroPendienteEliminar(null)}
+                  className="rounded-lg border border-slate-300 px-5 py-2 font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmarEliminacion}
+                  className="rounded-lg bg-red-500 px-5 py-2 font-semibold text-white transition-colors hover:bg-red-600"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
 
         {/* Toast Notification */}
         {toast.show && (
