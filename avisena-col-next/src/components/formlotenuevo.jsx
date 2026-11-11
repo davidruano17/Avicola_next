@@ -56,7 +56,7 @@ const calcularSemana = (linea, pesoPorAve) => {
       ? pesos.length - 2
       : pesos.findIndex((peso, currentIndex) => currentIndex < pesos.length - 1 && pesoPorAve <= pesos[currentIndex + 1]);
   const semana = index + 1 + (pesoPorAve - pesos[index]) / (pesos[index + 1] - pesos[index]);
-  return Number(Math.max(1, semana).toFixed(1));
+  return Math.max(1, Math.floor(semana));
 };
 
 const obtenerSemanaCalculada = (linea, pesoPromedio) => {
@@ -327,16 +327,13 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
               </div>
               <div>
                 <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Semana de vida</label>
-                <input
+                <div
                   id="semanadevida"
-                  type="number"
-                  min="1"
-                  step="any"
-                  className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
-                  placeholder="Semana de vida"
-                  readOnly
-                  value={semanaCalculada ?? formData.semanadevida}
-                />
+                  aria-live="polite"
+                  className="flex items-center w-full bg-white dark:bg-background-dark dark:border-primary/20 rounded-2xl dark:text-white text-sm h-11 px-3"
+                >
+                  {semanaCalculada ?? formData.semanadevida ?? 'Se calcula con el peso promedio'}
+                </div>
               </div>
             </div>
 
