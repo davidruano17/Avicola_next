@@ -1,18 +1,47 @@
 "use client";
 
-import { useState } from 'react';
-export default function FormMorbilidad({ onSubmit, onClose }) {
+import { useEffect, useState } from 'react';
+
+const nombresPerfilPorUsuario = {
+  admin: 'Instructor Líder (Admin)',
+  aprendiz: 'Aprendiz Sena',
+  investigador: 'Instructor Investigador',
+};
+
+export default function FormMorbilidad({ onSubmit, onClose, initialData = null }) {
   const [formData, setFormData] = useState({
-    responsable: '',
-    fecha: '',
-    galpon: '',
-    lote: '',
-    sintomas: '', // Modificado debido a que ya no es un select sino un textarea para ingresar los datos
-    afectacion: 'Leve',
-    cantidad: '',
-    accion: '',
-    observaciones: ''
+    responsable: initialData?.responsable || '',
+    fecha: initialData?.fecha || '',
+    galpon: initialData?.galpon || '',
+    lote: initialData?.lote || '',
+    sintomas: initialData?.sintomas || '', // Modificado debido a que ya no es un select sino un textarea para ingresar los datos
+    afectacion: initialData?.afectacion || 'Leve',
+    cantidad: initialData?.cantidad?.toString() || '',
+    accion: initialData?.accion || '',
+    observaciones: initialData?.observaciones || ''
   });
+
+  useEffect(() => {
+    if (initialData) return;
+
+    const userId = localStorage.getItem('user_id') || 'admin';
+    const nombrePorDefecto = nombresPerfilPorUsuario[userId] || nombresPerfilPorUsuario.admin;
+    const perfilGuardado = localStorage.getItem(`user_profile_${userId}`);
+
+    if (perfilGuardado) {
+      try {
+        const perfil = JSON.parse(perfilGuardado);
+        if (typeof perfil?.name === 'string' && perfil.name.trim()) {
+          setFormData((prev) => ({ ...prev, responsable: perfil.name.trim() }));
+          return;
+        }
+      } catch (error) {
+        console.error('No se pudo cargar el responsable desde el perfil.', error);
+      }
+    }
+
+    setFormData((prev) => ({ ...prev, responsable: nombrePorDefecto }));
+  }, [initialData]);
 
   const handleSintomasChange = (e) => {
     const options = e.target.options;
@@ -44,7 +73,9 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
 
           <section className="flex items-center gap-2 mb-4">
             <span className="material-icons text-primary">assignment_add</span>
-            <h3 className="text-lg font-semibold">Nuevo Registro de Morbilidad</h3>
+            <h3 className="text-lg font-semibold">
+              {initialData ? 'Editar Registro de Morbilidad' : 'Nuevo Registro de Morbilidad'}
+            </h3>
           </section>
 
           <form onSubmit={handleSubmit} className="space-y-3">
@@ -58,6 +89,7 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
                   placeholder="Nombre del técnico"
                   required
                   type="text"
+                  readOnly
                   value={formData.responsable}
                   onChange={(e) => setFormData({ ...formData, responsable: e.target.value })}
                 />
@@ -173,7 +205,7 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
               type="submit"
             >
               <span className="material-icons text-sm">save</span>
-              Guardar Registro
+              {initialData ? 'Actualizar Registro' : 'Guardar Registro'}
             </button>
           </form>
         </section>
