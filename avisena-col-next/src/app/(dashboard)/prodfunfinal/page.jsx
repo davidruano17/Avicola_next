@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import ModalHistorial from "@/components/ModalHistorial";
+import ModalConfirmacionEliminar from "@/components/ModalConfirmacionEliminar";
 
 const normalizarGalpon = (galpon) => String(galpon || "")
   .normalize("NFD")
@@ -45,6 +46,8 @@ const calcularEtapaGalpon = (registro, fecha) => {
     semanaProduccion: semanaVidaExacta >= 17 ? semanaVida - 16 : null,
   };
 };
+   
+
 
 const DashboardProduccion = () => {
 
@@ -71,6 +74,7 @@ const DashboardProduccion = () => {
   const [isModalRecoleccionOpen, setIsModalRecoleccionOpen] = useState(false);
   const [isModalIcaAlimentoOpen, setIsModalIcaAlimentoOpen] = useState(false);
   const [isHistorialOpen, setIsHistorialOpen] = useState(false);
+  const [confirmacionEliminacion, setConfirmacionEliminacion] = useState(null);
 
   /* ─── FORMULARIO RECOLECCIÓN ─── */
   const [fechaRecoleccion, setFechaRecoleccion] = useState(hoy);
@@ -601,13 +605,11 @@ const DashboardProduccion = () => {
   };
 
   const handleResetAlimentoMes = () => {
-    if (window.confirm("¿Resetear el alimento registrado este mes a 0 kg?"))
-      setAlimentoMes(prev => ({ ...prev, total: 0, registros: [] }));
+    setAlimentoMes(prev => ({ ...prev, total: 0, registros: [] }));
   };
 
   const handleResetHuevosMes = () => {
-    if (window.confirm("¿Resetear el conteo de huevos del mes a 0?\nEsto afecta el FCR mensual."))
-      setHuevosMes(prev => ({ ...prev, buenos: 0, rotos: 0, descarte: 0 }));
+    setHuevosMes(prev => ({ ...prev, buenos: 0, rotos: 0, descarte: 0 }));
   };
 
   const handleExportHistorial = () => {
@@ -630,9 +632,14 @@ const DashboardProduccion = () => {
   };
 
   const handleDeleteItem = (i) => setHistorial(prev => prev.filter((_, idx) => idx !== i));
-  const handleClearHistorial = () => {
-    if (window.confirm("¿Borrar todo el historial? Esta acción no se puede deshacer."))
-      setHistorial([]);
+  const handleClearHistorial = () => setHistorial([]);
+  const solicitarConfirmacionEliminacion = (titulo, mensaje, confirmar, textoConfirmar) => {
+    setConfirmacionEliminacion({
+      titulo,
+      mensaje,
+      confirmar,
+      textoConfirmar,
+    });
   };
 
   /* ─── Clase unificada para todos los inputs ─── */
@@ -888,8 +895,29 @@ const DashboardProduccion = () => {
         onClose={() => setIsHistorialOpen(false)}
         historial={historial}
         onExport={handleExportHistorial}
-        onDeleteItem={handleDeleteItem}
-        onClear={handleClearHistorial}
+        onDeleteItem={(indice, detalle) =>
+          solicitarConfirmacionEliminacion(
+            "Eliminar Registro",
+            `¿Está seguro de eliminar este registro? Esta acción no se puede deshacer.\n\n${detalle}`,
+            () => handleDeleteItem(indice),
+          )
+        }
+        onClear={() =>
+          solicitarConfirmacionEliminacion(
+            "Borrar Todo el Historial",
+            "¿Está seguro de borrar todo el historial? Esta acción no se puede deshacer.",
+            handleClearHistorial,
+            "Borrar Todo",
+          )
+        }
+      />
+      <ModalConfirmacionEliminar
+        abierto={Boolean(confirmacionEliminacion)}
+        cerrar={() => setConfirmacionEliminacion(null)}
+        confirmar={confirmacionEliminacion?.confirmar}
+        titulo={confirmacionEliminacion?.titulo}
+        mensaje={confirmacionEliminacion?.mensaje}
+        textoConfirmar={confirmacionEliminacion?.textoConfirmar}
       />
 
       {/* ════════════════════════════════════════════════════════════
@@ -1010,7 +1038,13 @@ const DashboardProduccion = () => {
                                    cursor-pointer border-none text-xs">
                         {alimentoEnEdicion ? "Guardar Cambios" : "+ Agregar al Mes"}
                       </button>
-                      <button type="button" onClick={handleResetAlimentoMes}
+                      <button type="button" onClick={() =>
+                        solicitarConfirmacionEliminacion(
+                          "Resetear Alimento",
+                          "¿Está seguro de resetear el alimento registrado este mes a 0 kg? Se eliminarán las entradas registradas.",
+                          handleResetAlimentoMes,
+                          "Resetear",
+                        )}
                         className="px-3 border border-red-200 dark:border-red-900/50 text-red-500
                                    font-bold rounded-xl hover:bg-red-50 dark:hover:bg-red-950/20
                                    transition-all cursor-pointer bg-transparent text-xs">
@@ -1038,7 +1072,12 @@ const DashboardProduccion = () => {
                                 className="text-[#2ea66d] hover:text-emerald-700 p-1 flex items-center bg-transparent border-none cursor-pointer">
                                 <span className="material-symbols-outlined text-base">edit</span>
                               </button>
-                              <button type="button" onClick={() => handleEliminarAlimento(r.id)}
+                              <button type="button" onClick={() =>
+                                solicitarConfirmacionEliminacion(
+                                  "Eliminar Entrada",
+                                  `¿Está seguro de eliminar esta entrada de alimento?\n\nFecha: ${r.fecha}\nCantidad: ${r.kg} kg`,
+                                  () => handleEliminarAlimento(r.id),
+                                )}
                                 title="Eliminar entrada"
                                 className="text-red-400 hover:text-red-600 p-1 flex items-center bg-transparent border-none cursor-pointer">
                                 <span className="material-symbols-outlined text-base">delete</span>
@@ -1104,7 +1143,13 @@ const DashboardProduccion = () => {
                           {totalHuevosMes} huevos ÷ 12
                         </p>
                       </div>
-                      <button onClick={handleResetHuevosMes}
+                      <button onClick={() =>
+                        solicitarConfirmacionEliminacion(
+                          "Resetear Conteo de Huevos",
+                          "¿Está seguro de resetear el conteo de huevos del mes a 0? Esto afecta el FCR mensual.",
+                          handleResetHuevosMes,
+                          "Resetear",
+                        )}
                         className="text-[10px] text-red-400 hover:text-red-600 font-bold
                                    bg-transparent border-none cursor-pointer mt-1">
                         Resetear
@@ -1259,29 +1304,36 @@ const DashboardProduccion = () => {
                     onChange={e => setFechaRecoleccion(e.target.value)}
                     required className={inputCls} />
                 </label>
-                <label className="flex flex-col text-xs font-bold text-slate-500 uppercase">
-                  Edad en Semanas de Vida *
-                  <input type="text" inputMode="numeric" placeholder="ej. 22"
-                    value={etapaGalponSeleccionado?.fechaAnteriorAlIngreso
-                      ? ""
-                      : edadAutomatica ?? edadSemanasRecoleccion}
-                    readOnly={edadAutomatica !== undefined}
-                    onChange={e => setEdadSemanasRecoleccion(e.target.value.replace(/[^\d]/g, ""))}
-                    required className={inputCls} />
-                </label>
-                <label className="flex flex-col text-xs font-bold text-slate-500 uppercase sm:col-span-2">
-                  Semana de Producción
-                  <input type="text"
-                    value={etapaGalponSeleccionado?.fechaAnteriorAlIngreso
+                {edadAutomatica !== undefined || etapaGalponSeleccionado?.fechaAnteriorAlIngreso ? (
+                  <div className="flex flex-col text-xs font-bold text-slate-500 uppercase">
+                    <span>Edad en Semanas de Vida *</span>
+                    <p className={`${inputCls} mb-0 bg-slate-50 dark:bg-zinc-800`}>
+                      {etapaGalponSeleccionado?.fechaAnteriorAlIngreso
+                        ? "Fecha anterior al ingreso"
+                        : `${edadAutomatica} semanas`}
+                    </p>
+                  </div>
+                ) : (
+                  <label className="flex flex-col text-xs font-bold text-slate-500 uppercase">
+                    Edad en Semanas de Vida *
+                    <input type="text" inputMode="numeric" placeholder="ej. 22"
+                      value={edadSemanasRecoleccion}
+                      onChange={e => setEdadSemanasRecoleccion(e.target.value.replace(/[^\d]/g, ""))}
+                      required className={inputCls} />
+                  </label>
+                )}
+                <div className="flex flex-col text-xs font-bold text-slate-500 uppercase sm:col-span-2">
+                  <span>Semana de Producción</span>
+                  <p className={`${inputCls} mb-0 bg-slate-50 dark:bg-zinc-800`}>
+                    {etapaGalponSeleccionado?.fechaAnteriorAlIngreso
                       ? "Fecha anterior al ingreso"
                       : semanaProduccionAutomatica
                         ? `Semana ${semanaProduccionAutomatica}`
                         : registroGalponSeleccionado
                           ? "Aún no inicia"
                           : "Sin datos del galpón"}
-                    readOnly
-                    className={`${inputCls} bg-slate-50 dark:bg-zinc-800`} />
-                </label>
+                  </p>
+                </div>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
