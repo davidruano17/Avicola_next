@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import Notificacion
 from apps.galpones.models import Galpon
+from apps.galpones.serializers import resolver_galpon, obtener_numero_galpon
 
 class NotificacionSerializer(serializers.ModelSerializer):
     """
@@ -89,7 +90,7 @@ class NotificacionSerializer(serializers.ModelSerializer):
     def get_galpon(self, obj):
         if not obj.galpon:
             return None
-        return f"Galpón {str(obj.galpon.galpon_id).zfill(2)}"
+        return f"Galpón {obtener_numero_galpon(obj.galpon)}"
 
     def to_internal_value(self, data):
         data = data.copy() if hasattr(data, 'copy') else dict(data)
@@ -119,4 +120,10 @@ class NotificacionSerializer(serializers.ModelSerializer):
         if 'unread' in data and 'noti_estado_leido' not in data:
             data['noti_estado_leido'] = 0 if data['unread'] else 1
 
-        return super().to_internal_value(data)
+        raw_galpon = data.get('galpon') or data.get('galpon_id')
+        galpon_obj = resolver_galpon(raw_galpon) if raw_galpon else None
+
+        ret = super().to_internal_value(data)
+        if galpon_obj:
+            ret['galpon'] = galpon_obj
+        return ret

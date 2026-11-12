@@ -81,7 +81,9 @@ const ModalHistorial = ({
                     <p className="font-extrabold text-sm text-slate-800 dark:text-slate-200">
                       {item.fecha}
                     </p>
-                    <p className="text-xs text-slate-400 mt-0.5">{item.edad}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {item.edad || (item.edadSemanas ? `${item.edadSemanas} Semanas` : "")}
+                    </p>
                   </td>
                   <td className="px-6 py-4 text-sm font-semibold text-slate-500 dark:text-slate-400">
                     {item.galpon}
@@ -90,10 +92,10 @@ const ModalHistorial = ({
                     {item.semanaProduccion ? `Semana ${item.semanaProduccion}` : "—"}
                   </td>
                   <td className="px-6 py-4 text-center text-sm font-black text-slate-800 dark:text-slate-200">
-                    {item.huevos.toLocaleString()}
+                    {Number(item.huevos ?? item.totalHuevos ?? 0).toLocaleString()}
                   </td>
                   <td className="px-6 py-4 text-center text-sm font-medium text-slate-500 dark:text-slate-400">
-                    {item.alimento.toFixed(1)}
+                    {Number(item.alimento ?? 0).toFixed(1)}
                   </td>
                   <td className="px-6 py-4 text-right flex items-center justify-end gap-2">
                     <button

@@ -3,31 +3,7 @@ from rest_framework import serializers
 from django.db import transaction
 from .models import MortalidadAves, MorbilidadAves, TratamientoAves
 from apps.galpones.models import Galpon
-
-def resolver_galpon(valor):
-    if not valor:
-        return Galpon.objects.first()
-    if isinstance(valor, Galpon):
-        return valor
-    if isinstance(valor, dict):
-        valor = valor.get('id') or valor.get('galpon_id')
-    try:
-        val_int = int(str(valor).strip())
-        g = Galpon.objects.filter(galpon_id=val_int).first()
-        if g:
-            return g
-    except (ValueError, TypeError):
-        pass
-
-    str_val = str(valor).strip()
-    digits = re.findall(r'\d+', str_val)
-    if digits:
-        val_int = int(digits[0])
-        g = Galpon.objects.filter(galpon_id=val_int).first()
-        if g:
-            return g
-
-    return Galpon.objects.first()
+from apps.galpones.serializers import resolver_galpon, obtener_numero_galpon
 
 
 class MortalidadAvesSerializer(serializers.ModelSerializer):
@@ -100,8 +76,8 @@ class MortalidadAvesSerializer(serializers.ModelSerializer):
 
     def get_galpon(self, obj):
         if not obj.galpon:
-            return "Galpón 01"
-        return f"Galpón {str(obj.galpon.galpon_id).zfill(2)}"
+            return "1"
+        return str(obtener_numero_galpon(obj.galpon))
 
     def get_edad(self, obj):
         if hasattr(obj, 'mort_edad_semanas') and obj.mort_edad_semanas is not None:
@@ -128,23 +104,22 @@ class MortalidadAvesSerializer(serializers.ModelSerializer):
     def to_internal_value(self, data):
         data = data.copy() if hasattr(data, 'copy') else dict(data)
 
-        # Mapeos de campos directos
-        if 'fecha' in data and 'mort_fecha' not in data:
+        # Mapeos de campos directos (si vienen los alias del frontend, tienen prioridad al crear/editar)
+        if 'fecha' in data:
             data['mort_fecha'] = data['fecha']
-        if 'cantidad' in data and 'mort_cantidad_aves' not in data:
+        if 'cantidad' in data:
             data['mort_cantidad_aves'] = int(data['cantidad'] or 0)
-        if 'causa' in data and 'mort_causa_muerte' not in data:
+        if 'causa' in data:
             data['mort_causa_muerte'] = data['causa']
-        if 'disposicion' in data and 'mort_disposicion_final' not in data:
+        if 'disposicion' in data:
             data['mort_disposicion_final'] = data['disposicion']
         if not data.get('mort_disposicion_final'):
             data['mort_disposicion_final'] = "Compostaje en fosa biológica"
 
-        # Resolver Galpón
-        raw_galpon = data.get('galpon') or data.get('galponId') or data.get('galpon_id')
-        galpon_obj = resolver_galpon(raw_galpon)
-        if galpon_obj:
-            data['galpon'] = galpon_obj.galpon_id
+        # Resolver Galpón (priorizando galponId explícito si se selecciona un lote específico)
+        raw_galpon = data.get('galpon')
+        raw_galpon_id = data.get('galponId') or data.get('galpon_id')
+        galpon_obj = resolver_galpon(raw_galpon or raw_galpon_id, galpon_id_explicit=raw_galpon_id)
 
         # Mapear edad nativa a la columna de base de datos mort_edad_semanas
         raw_edad = data.get('edad') or data.get('semanadevida') or data.get('mort_edad_semanas')
@@ -160,7 +135,10 @@ class MortalidadAvesSerializer(serializers.ModelSerializer):
         raw_necropsia = str(data.get('necropsia') or data.get('mort_resultado_necropsia') or '').strip()
         data['mort_resultado_necropsia'] = raw_necropsia[:300] if raw_necropsia else None
 
-        return super().to_internal_value(data)
+        ret = super().to_internal_value(data)
+        if galpon_obj:
+            ret['galpon'] = galpon_obj
+        return ret
 
 
 class MorbilidadAvesSerializer(serializers.ModelSerializer):
@@ -234,19 +212,22 @@ class MorbilidadAvesSerializer(serializers.ModelSerializer):
 
     def get_galpon(self, obj):
         if not obj.galpon:
-            return "Galpón 01"
-        return f"Galpón {str(obj.galpon.galpon_id).zfill(2)}"
+            return "1"
+        return str(obtener_numero_galpon(obj.galpon))
 
     def get_lote(self, obj):
-        return self.get_galpon(obj)
+        return f"Galpón {self.get_galpon(obj)}"
 
     def get_afectacion(self, obj):
         # Mapeo hacia el frontend: 'Leve', 'Moderado', 'Crítico'
         mapping = {
+            'Leve': 'Leve',
             'Bajo': 'Leve',
+            'Moderado': 'Moderado',
             'Medio': 'Moderado',
             'Alto': 'Crítico',
             'Critico': 'Crítico',
+            'Crítico': 'Crítico',
         }
         return mapping.get(obj.morb_grado_afectacion, 'Moderado')
 
@@ -270,27 +251,25 @@ class MorbilidadAvesSerializer(serializers.ModelSerializer):
         data = data.copy() if hasattr(data, 'copy') else dict(data)
 
         # Mapeos de campos directos
-        if 'fecha' in data and 'morb_fecha_reporte' not in data:
+        if 'fecha' in data:
             data['morb_fecha_reporte'] = data['fecha']
-        if 'cantidad' in data and 'morb_cant_aves_afectadas' not in data:
+        if 'cantidad' in data:
             data['morb_cant_aves_afectadas'] = int(data['cantidad'] or 0)
-        if 'sintomas' in data and 'morb_sintomas' not in data:
+        if 'sintomas' in data:
             data['morb_sintomas'] = str(data['sintomas'])[:255]
 
-        # Mapeo de grado de afectación hacia las opciones válidas de MariaDB ('Bajo', 'Medio', 'Critico', 'Alto')
+        # Mapeo de grado de afectación hacia las opciones válidas de MySQL ('Leve', 'Moderado', 'Critico')
         raw_afectacion = str(data.get('afectacion') or data.get('morb_grado_afectacion') or '').strip().lower()
         if 'leve' in raw_afectacion or 'bajo' in raw_afectacion:
-            data['morb_grado_afectacion'] = 'Bajo'
-        elif 'crit' in raw_afectacion or 'alto' in raw_afectacion:
+            data['morb_grado_afectacion'] = 'Leve'
+        elif 'crit' in raw_afectacion or 'crít' in raw_afectacion or 'alto' in raw_afectacion:
             data['morb_grado_afectacion'] = 'Critico'
         else:
-            data['morb_grado_afectacion'] = 'Medio'
+            data['morb_grado_afectacion'] = 'Moderado'
 
         # Resolver Galpón
-        raw_galpon = data.get('galpon') or data.get('galpon_id')
+        raw_galpon = data.get('galpon') or data.get('galpon_id') or data.get('lote')
         galpon_obj = resolver_galpon(raw_galpon)
-        if galpon_obj:
-            data['galpon'] = galpon_obj.galpon_id
 
         # Empacar accion, observaciones y responsable en morb_concepto_veterinario
         accion = str(data.get('accion') or data.get('accion_inmediata') or '').strip()
@@ -314,7 +293,10 @@ class MorbilidadAvesSerializer(serializers.ModelSerializer):
         else:
             data['morb_concepto_veterinario'] = "Evaluación clínica de lote"
 
-        return super().to_internal_value(data)
+        ret = super().to_internal_value(data)
+        if galpon_obj:
+            ret['galpon'] = galpon_obj
+        return ret
 
 
 class TratamientoAvesSerializer(serializers.ModelSerializer):
@@ -340,6 +322,7 @@ class TratamientoAvesSerializer(serializers.ModelSerializer):
     fecha = serializers.DateField(source='trat_fecha_tratamiento', required=False)
     galpon = serializers.SerializerMethodField(read_only=True)
     galpon_id = serializers.IntegerField(source='galpon.galpon_id', read_only=True)
+    lote = serializers.SerializerMethodField(read_only=True)
     medicamento = serializers.CharField(source='trat_tratamiento', required=False)
     tipo = serializers.CharField(source='trat_tipo_tratamiento', required=False)
     viaAdministracion = serializers.CharField(source='trat_via_administracion', required=False)
@@ -360,6 +343,7 @@ class TratamientoAvesSerializer(serializers.ModelSerializer):
             'trat_fecha_tratamiento',
             'galpon',
             'galpon_id',
+            'lote',
             'medicamento',
             'trat_tratamiento',
             'tipo',
@@ -406,8 +390,16 @@ class TratamientoAvesSerializer(serializers.ModelSerializer):
 
     def get_galpon(self, obj):
         if not obj.galpon:
-            return "Galpón 01"
-        return f"Galpón {str(obj.galpon.galpon_id).zfill(2)}"
+            return "1"
+        return str(obtener_numero_galpon(obj.galpon))
+
+    def get_lote(self, obj):
+        meta, _ = self._parse_metadata(obj.trat_observaciones)
+        if 'Lote' in meta and meta['Lote']:
+            return meta['Lote']
+        if not obj.galpon:
+            return "Lote 1"
+        return f"Lote {obtener_numero_galpon(obj.galpon)}"
 
     def get_observaciones(self, obj):
         _, clean = self._parse_metadata(obj.trat_observaciones)
@@ -426,15 +418,15 @@ class TratamientoAvesSerializer(serializers.ModelSerializer):
             data['trat_fecha_tratamiento'] = str(fecha_val).split('T')[0]
 
         # Mapeos de campos directos
-        if 'medicamento' in data and 'trat_tratamiento' not in data:
+        if 'medicamento' in data:
             data['trat_tratamiento'] = str(data['medicamento'])[:50]
-        if 'tipo' in data and 'trat_tipo_tratamiento' not in data:
+        if 'tipo' in data:
             data['trat_tipo_tratamiento'] = str(data['tipo'])[:50]
-        if 'viaAdministracion' in data and 'trat_via_administracion' not in data:
+        if 'viaAdministracion' in data:
             data['trat_via_administracion'] = str(data['viaAdministracion'])[:50]
-        if 'dosis' in data and 'trat_dosis_suministro' not in data:
+        if 'dosis' in data:
             data['trat_dosis_suministro'] = str(data['dosis'])[:20]
-        if 'duracion' in data and 'trat_duracion_tratamiento' not in data:
+        if 'duracion' in data:
             try:
                 data['trat_duracion_tratamiento'] = int(data['duracion'] or 1)
             except (ValueError, TypeError):
@@ -459,8 +451,6 @@ class TratamientoAvesSerializer(serializers.ModelSerializer):
         # Resolver Galpón
         raw_galpon = data.get('galpon') or data.get('galpon_id')
         galpon_obj = resolver_galpon(raw_galpon)
-        if galpon_obj:
-            data['galpon'] = galpon_obj.galpon_id
 
         # Autonomía de Tratamientos: resolver o asociar morbilidad sin forzar al frontend
         raw_morb = data.get('morbilidad') or data.get('morbilidad_id')
@@ -474,4 +464,7 @@ class TratamientoAvesSerializer(serializers.ModelSerializer):
                 if first_morb:
                     data['morbilidad'] = first_morb.morbilidad_id
 
-        return super().to_internal_value(data)
+        ret = super().to_internal_value(data)
+        if galpon_obj:
+            ret['galpon'] = galpon_obj
+        return ret

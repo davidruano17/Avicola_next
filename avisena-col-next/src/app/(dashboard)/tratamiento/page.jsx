@@ -15,6 +15,7 @@ export default function TratamientoView() {
   useEffect(() => {
     async function cargarTratamientos() {
       try {
+        await api.sincronizarPendientes().catch(() => {});
         const res = await api.get('/sanidad/tratamientos/').catch(() => null);
         const lista = Array.isArray(res) ? res : (res?.results || []);
         if (lista.length > 0) {
@@ -206,7 +207,7 @@ export default function TratamientoView() {
                         </span>
                       </td>
                       <td className="p-4">
-                        <p className="font-bold">G{tratamiento.galpon} - {tratamiento.lote}</p>
+                        <p className="font-bold">Galpón {String(tratamiento.galpon || '').replace(/^galp[oó]n\s*/i, '')} - {tratamiento.lote}</p>
                       </td>
                       <td className="p-4 text-slate-600 dark:text-slate-300">{tratamiento.viaAdministracion}</td>
                       <td className="p-4 text-slate-600 dark:text-slate-300">{formatDate(tratamiento.fechaInicio)}</td>

@@ -20,10 +20,22 @@ export default function ModalEditarMortalidad({
   });
   const [errorStock, setErrorStock] = useState("");
 
+  const limpiarGalponStr = (val) =>
+    String(val ?? "")
+      .replace(/^galp[oó]n\s*/i, "")
+      .replace(/^0+/, "")
+      .trim()
+      .toLowerCase();
+
   useEffect(() => {
     if (registro) {
+      const galponLimpio =
+        String(registro.galpon ?? "")
+          .replace(/^galp[oó]n\s*/i, "")
+          .replace(/^0+/, "")
+          .trim() || String(registro.galpon ?? "");
       setDatos({
-        galpon: registro.galpon,
+        galpon: galponLimpio,
         cantidad: registro.cantidad,
         edad: registro.edad,
         causa: registro.causa,
@@ -36,10 +48,9 @@ export default function ModalEditarMortalidad({
 
   const galponSeleccionado = galpones.find(
     (g) =>
-      String(g.galpon).trim().toLowerCase() === String(datos.galpon).trim().toLowerCase() ||
-      String(g.id) === String(datos.galpon) ||
-      String(g.lote).trim().toLowerCase() === String(datos.galpon).trim().toLowerCase() ||
-      String(g.galpon).trim().replace(/^0+/, "") === String(datos.galpon).trim().replace(/^0+/, "")
+      limpiarGalponStr(g.galp_numero_galpon ?? g.galpon) === limpiarGalponStr(datos.galpon) ||
+      limpiarGalponStr(g.lote) === limpiarGalponStr(datos.galpon) ||
+      String(g.id) === String(datos.galpon)
   );
 
   // Si es el mismo galpón original, el límite es el saldo actual + las aves de este registro

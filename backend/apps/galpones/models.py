@@ -2,9 +2,10 @@ from django.db import models
 
 class Galpon(models.Model):
     galpon_id = models.AutoField(primary_key=True)
+    galp_numero_galpon = models.IntegerField(default=1)
     galp_fecha_ingreso = models.DateField()
     galp_hora_ingreso = models.TimeField()
-    galp_peso_promedio = models.DecimalField(max_digits=5, decimal_places=2)
+    galp_peso_promedio = models.DecimalField(max_digits=10, decimal_places=2)
     galp_numero_aves = models.IntegerField()
     galp_numero_aves_inicial = models.IntegerField(null=True, blank=True)
     galp_semana_de_vida = models.IntegerField()
@@ -18,4 +19,4 @@ class Galpon(models.Model):
         db_table = 'galpones'
 
     def __str__(self):
-        return f"Galpón #{self.galpon_id} - {self.galp_linea_de_aves}"
+        return f"Galpón #{self.galp_numero_galpon} - {self.galp_linea_de_aves}"

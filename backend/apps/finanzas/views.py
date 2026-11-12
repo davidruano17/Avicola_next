@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.response import Response
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
-from django.db.models import Sum 
+from django.db.models import Sum, Q
 
 from .models import FinanzasUdAvicola
 from .serializers import FinanzasUdAvicolaSerializer
@@ -33,7 +33,7 @@ class FinanzasUdAvicolaViewSet(viewsets.ModelViewSet):
         if galpon:
             try:
                 gid = int(galpon.replace('Galpón', '').replace('Galpon', '').strip())
-                qs = qs.filter(galpon_id=gid)
+                qs = qs.filter(Q(galpon__galp_numero_galpon=gid) | Q(galpon_id=gid))
             except (ValueError, TypeError):
                 pass
 

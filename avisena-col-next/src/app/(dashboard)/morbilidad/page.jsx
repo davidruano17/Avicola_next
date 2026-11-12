@@ -19,6 +19,7 @@ export default function MorbilidadView() {
   useEffect(() => {
     async function cargarMorbilidad() {
       try {
+        await api.sincronizarPendientes().catch(() => {});
         const res = await api.get('/sanidad/morbilidad/').catch(() => null);
         const lista = Array.isArray(res) ? res : (res?.results || []);
         if (lista.length > 0) {

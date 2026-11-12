@@ -1,7 +1,10 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import api from '@/services/api';
+
 export default function FormMorbilidad({ onSubmit, onClose }) {
+  const [galponesDisponibles, setGalponesDisponibles] = useState([]);
   const [formData, setFormData] = useState({
     responsable: '',
     fecha: '',
@@ -13,6 +16,25 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
     accion: '',
     observaciones: ''
   });
+
+  useEffect(() => {
+    async function cargarGalpones() {
+      try {
+        const res = await api.get('/galpones/').catch(() => null);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        if (lista.length > 0) {
+          localStorage.setItem('historialgalpones', JSON.stringify(lista));
+          setGalponesDisponibles(lista);
+          return;
+        }
+      } catch {}
+      try {
+        const local = JSON.parse(localStorage.getItem('historialgalpones') || '[]');
+        if (Array.isArray(local) && local.length > 0) setGalponesDisponibles(local);
+      } catch {}
+    }
+    cargarGalpones();
+  }, []);
 
   const handleSintomasChange = (e) => {
     const options = e.target.options;
@@ -83,10 +105,26 @@ export default function FormMorbilidad({ onSubmit, onClose }) {
                   value={formData.galpon}
                   onChange={(e) => setFormData({ ...formData, galpon: e.target.value })}
                 >
-                  {/**Se modifica para que sólo aparezca galpón 01 y galpón 02 */}
                   <option value="">Seleccionar galpón...</option>
-                  <option value="01">01</option> 
-                  <option value="02">02</option>
+                  {galponesDisponibles.length > 0 ? (
+                    Array.from(
+                      new Map(
+                        galponesDisponibles.map(g => {
+                          const num = String(g.galp_numero_galpon ?? g.numeroGalpon ?? g.galpon ?? g.lote ?? '01').replace(/\D/g, '') || String(g.galpon || g.lote || '01');
+                          const val = num.padStart(2, '0');
+                          const label = g.galpon && /^galp/i.test(String(g.galpon)) ? g.galpon : `Galpón ${val}`;
+                          return [val, { val, label }];
+                        })
+                      ).values()
+                    ).map(opt => (
+                      <option key={opt.val} value={opt.val}>{opt.label}</option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="01">Galpón 01</option>
+                      <option value="02">Galpón 02</option>
+                    </>
+                  )}
                 </select>
               </section>
             </section>

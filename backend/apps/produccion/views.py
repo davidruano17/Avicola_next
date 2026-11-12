@@ -35,7 +35,7 @@ class ProduccionHuevosViewSet(viewsets.ModelViewSet):
         if galpon:
             try:
                 gid = int(galpon.replace('Galpón', '').replace('Galpon', '').strip())
-                qs = qs.filter(galpon_id=gid)
+                qs = qs.filter(Q(galpon__galp_numero_galpon=gid) | Q(galpon_id=gid))
             except (ValueError, TypeError):
                 pass
 
@@ -95,7 +95,7 @@ class ClasificacionHuevosViewSet(viewsets.ModelViewSet):
         if galpon:
             try:
                 gid = int(galpon.replace('Galpón', '').replace('Galpon', '').strip())
-                qs = qs.filter(galpon_id=gid)
+                qs = qs.filter(Q(galpon__galp_numero_galpon=gid) | Q(galpon_id=gid))
             except (ValueError, TypeError):
                 pass
 
@@ -132,7 +132,7 @@ class AlimentacionAvesViewSet(viewsets.ModelViewSet):
         if galpon:
             try:
                 gid = int(galpon.replace('Galpón', '').replace('Galpon', '').strip())
-                qs = qs.filter(galpon_id=gid)
+                qs = qs.filter(Q(galpon__galp_numero_galpon=gid) | Q(galpon_id=gid))
             except (ValueError, TypeError):
                 pass
 

@@ -18,11 +18,7 @@ class GalponViewSet(viewsets.ModelViewSet):
     """
     queryset = Galpon.objects.all().order_by('-galpon_id')
     serializer_class = GalponSerializer
-
-    def get_permissions(self):
-        if self.action == 'destroy':
-            return [IsAdminUserRole()]
-        return [IsInstructorOrReadOnly()]
+    permission_classes = [IsAuthenticated]
 
     def destroy(self, request, *args, **kwargs):
         instance = self.get_object()

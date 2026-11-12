@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
-import { sincronizarPendientes, obtenerPendientes } from '@/services/api';
+import api, { sincronizarPendientes, obtenerPendientes } from '@/services/api';
 import {
   PanelLeftClose,
   PanelLeftOpen,
@@ -187,6 +187,33 @@ export default function DashboardLayout({ children }) {
     };
 
     updateProfile();
+
+    async function fetchPerfilReal() {
+      const token = localStorage.getItem('user_token');
+      if (!token || token.startsWith('token-') || token.startsWith('dummy-token')) return;
+      try {
+        const me = await api.get('/auth/me/').catch(() => null);
+        if (me && (me.nombre || me.email)) {
+          const baseDefault = userMap[userId] || userMap.admin;
+          let localParsed = {};
+          try {
+            localParsed = JSON.parse(localStorage.getItem(`user_profile_${userId}`) || '{}');
+          } catch {}
+          const merged = {
+            ...baseDefault,
+            ...localParsed,
+            name: me.nombre || localParsed.name || baseDefault.name,
+            email: me.email || localParsed.email || baseDefault.email,
+            role: (typeof me.rol === 'string' ? me.rol : me.rol?.nombre) || localParsed.role || baseDefault.role,
+            avatar: localParsed.avatar || baseDefault.avatar,
+          };
+          setCurrentUser(merged);
+          localStorage.setItem(`user_profile_${userId}`, JSON.stringify(merged));
+        }
+      } catch {}
+    }
+    fetchPerfilReal();
+
     window.addEventListener('storage', updateProfile);
     return () => {
       window.removeEventListener('storage', updateProfile);

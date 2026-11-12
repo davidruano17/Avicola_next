@@ -3,6 +3,7 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated 
 from django.db import transaction
+from django.db.models import Q
 
 from apps.galpones.models import Galpon
 from .models import MortalidadAves, MorbilidadAves, TratamientoAves
@@ -33,7 +34,7 @@ class MortalidadAvesViewSet(viewsets.ModelViewSet):
         if galpon:
             try:
                 gid = int(galpon.replace('Galpón', '').replace('Galpon', '').strip())
-                qs = qs.filter(galpon_id=gid)
+                qs = qs.filter(Q(galpon__galp_numero_galpon=gid) | Q(galpon_id=gid))
             except (ValueError, TypeError):
                 pass
 
@@ -125,18 +126,18 @@ class MorbilidadAvesViewSet(viewsets.ModelViewSet):
         if galpon:
             try:
                 gid = int(galpon.replace('Galpón', '').replace('Galpon', '').strip())
-                qs = qs.filter(galpon_id=gid)
+                qs = qs.filter(Q(galpon__galp_numero_galpon=gid) | Q(galpon_id=gid))
             except (ValueError, TypeError):
                 pass
 
         if afectacion:
             raw = afectacion.strip().lower()
             if 'leve' in raw or 'bajo' in raw:
-                qs = qs.filter(morb_grado_afectacion='Bajo')
-            elif 'crit' in raw or 'alto' in raw:
+                qs = qs.filter(morb_grado_afectacion__in=['Leve', 'Bajo'])
+            elif 'crit' in raw or 'crít' in raw or 'alto' in raw:
                 qs = qs.filter(morb_grado_afectacion__in=['Critico', 'Alto'])
             else:
-                qs = qs.filter(morb_grado_afectacion='Medio')
+                qs = qs.filter(morb_grado_afectacion__in=['Moderado', 'Medio'])
 
         if fecha:
             qs = qs.filter(morb_fecha_reporte=fecha)
@@ -167,7 +168,7 @@ class TratamientoAvesViewSet(viewsets.ModelViewSet):
         if galpon:
             try:
                 gid = int(galpon.replace('Galpón', '').replace('Galpon', '').strip())
-                qs = qs.filter(galpon_id=gid)
+                qs = qs.filter(Q(galpon__galp_numero_galpon=gid) | Q(galpon_id=gid))
             except (ValueError, TypeError):
                 pass
 

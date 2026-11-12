@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import api from '@/services/api';
 
 export default function Page() {
   const router = useRouter();
@@ -38,19 +39,51 @@ export default function Page() {
 
   useEffect(() => {
     const userId = localStorage.getItem('user_id') || 'admin';
+    const baseDefault = defaultProfiles[userId] || defaultProfiles.admin;
+    let localParsed = {};
     const saved = localStorage.getItem(`user_profile_${userId}`);
     if (saved) {
       try {
+        localParsed = JSON.parse(saved);
         setProfile({
-          ...(defaultProfiles[userId] || defaultProfiles.admin),
-          ...JSON.parse(saved)
+          ...baseDefault,
+          ...localParsed
         });
-        return;
       } catch (e) {
         console.error(e);
       }
+    } else {
+      setProfile(baseDefault);
     }
-    setProfile(defaultProfiles[userId] || defaultProfiles.admin);
+
+    async function cargarPerfilDesdeAPI() {
+      try {
+        const me = await api.get('/auth/me/').catch(() => null);
+        if (me && (me.nombre || me.email)) {
+          const avatarUrl =
+            localParsed.avatar ||
+            baseDefault.avatar ||
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(me.nombre || 'Usuario')}&background=5be830&color=fff`;
+          const perfilActualizado = {
+            ...baseDefault,
+            ...localParsed,
+            id: me.id || me.usuario_id,
+            name: me.nombre || me.usu_nombre_completo || localParsed.name || baseDefault.name,
+            email: me.email || me.usu_correo_electronico || localParsed.email || baseDefault.email,
+            role: (typeof me.rol === 'string' ? me.rol : me.rol?.nombre) || localParsed.role || baseDefault.role,
+            tel: me.telefono || me.usu_numero_celular || localParsed.tel || baseDefault.tel,
+            residencia: me.residencia || me.usu_residencia || localParsed.residencia || baseDefault.residencia,
+            avatar: avatarUrl,
+          };
+          setProfile(perfilActualizado);
+          localStorage.setItem(`user_profile_${userId}`, JSON.stringify(perfilActualizado));
+          window.dispatchEvent(new Event('storage'));
+        }
+      } catch (e) {
+        console.warn('No se pudo cargar /auth/me/, usando respaldo local:', e);
+      }
+    }
+    cargarPerfilDesdeAPI();
   }, []);
 
   const [isEditing, setIsEditing] = useState(false);
@@ -118,10 +151,31 @@ export default function Page() {
     setFormData({ ...profile }); // Reset form
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
     const userId = localStorage.getItem('user_id') || 'admin';
-    const updatedProfile = { ...formData };
+    let updatedProfile = { ...formData };
+
+    try {
+      const meActualizado = await api.patch('/auth/me/', {
+        nombre: formData.name,
+        email: formData.email,
+        telefono: formData.tel,
+        residencia: formData.residencia,
+      });
+      if (meActualizado && (meActualizado.nombre || meActualizado.email)) {
+        updatedProfile = {
+          ...updatedProfile,
+          name: meActualizado.nombre || updatedProfile.name,
+          email: meActualizado.email || updatedProfile.email,
+          tel: meActualizado.telefono || updatedProfile.tel,
+          residencia: meActualizado.residencia || updatedProfile.residencia,
+        };
+      }
+    } catch (err) {
+      console.warn('Fallo al actualizar perfil en API, guardando en respaldo local:', err);
+    }
+
     setProfile(updatedProfile);
     localStorage.setItem(`user_profile_${userId}`, JSON.stringify(updatedProfile));
 
@@ -481,7 +535,7 @@ export default function Page() {
 
           <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* Contraseña Actual */}
-            <p className="flex flex-col gap-1.5 m-0">
+            <section className="flex flex-col gap-1.5 m-0">
               <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
                 Contraseña Actual *
               </label>
@@ -508,10 +562,10 @@ export default function Page() {
                   </span>
                 </button>
               </aside>
-            </p>
+            </section>
 
             {/* Nueva Contraseña */}
-            <p className="flex flex-col gap-1.5 m-0">
+            <section className="flex flex-col gap-1.5 m-0">
               <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
                 Nueva Contraseña *
               </label>
@@ -539,10 +593,10 @@ export default function Page() {
                   </span>
                 </button>
               </aside>
-            </p>
+            </section>
 
             {/* Confirmar Nueva Contraseña */}
-            <p className="flex flex-col gap-1.5 m-0">
+            <section className="flex flex-col gap-1.5 m-0">
               <label className="text-xs font-bold text-slate-600 dark:text-slate-400 uppercase tracking-tight">
                 Confirmar Nueva Contraseña *
               </label>
@@ -570,7 +624,7 @@ export default function Page() {
                   </span>
                 </button>
               </aside>
-            </p>
+            </section>
           </section>
 
           <footer className="pt-4 border-t border-slate-100 dark:border-zinc-800 flex flex-col sm:flex-row justify-between items-center gap-3">

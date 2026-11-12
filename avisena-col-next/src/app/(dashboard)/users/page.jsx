@@ -18,6 +18,7 @@ export default function Page() {
     "Instructor investigador",
     "Aprendiz de contrato",
   ]);
+  const [rolesObjetos, setRolesObjetos] = useState([]);
   const [modalEditarAbierto, setModalEditarAbierto] = useState(false);
   const [usuarioEditar, setUsuarioEditar] = useState(null);
   const [modalEliminarAbierto, setModalEliminarAbierto] = useState(false);
@@ -85,12 +86,16 @@ export default function Page() {
 
         const rolesList = Array.isArray(rolesRes) ? rolesRes : (rolesRes?.results || []);
         if (rolesList.length > 0) {
+          setRolesObjetos(rolesList);
+          localStorage.setItem("roles_objetos", JSON.stringify(rolesList));
           const nombres = rolesList.map(r => r.nombre || r.rol_nombre || r);
           setRoles(nombres);
           localStorage.setItem("roles", JSON.stringify(nombres));
         } else {
           const rolesGuardados = JSON.parse(localStorage.getItem("roles"));
           if (rolesGuardados) setRoles(rolesGuardados);
+          const rolesObjGuardados = JSON.parse(localStorage.getItem("roles_objetos") || "[]");
+          if (rolesObjGuardados.length > 0) setRolesObjetos(rolesObjGuardados);
         }
       } catch (err) {
         const datos = (JSON.parse(localStorage.getItem("usuarios")) || []).map((u) => ({
@@ -111,7 +116,7 @@ export default function Page() {
 
   return (
     <>
-      <section className="bg-[#f6f7f8] dark:bg-[#141d1e] font-sans text-slate-900 dark:text-slate-100 min-h-screen">
+      <section className=" font-sans text-slate-900 dark:text-slate-100 min-h-screen">
         <section className="flex h-full grow flex-col">
           <main className="w-full max-w-10xl mx-auto px-2 sm:px-4 lg:px-6 py-4 sm:py-6">
             <section className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 mb-6 sm:mb-8">
@@ -137,6 +142,8 @@ export default function Page() {
                 <RolesGestionUsuarios
                   roles={roles}
                   setRoles={setRoles}
+                  rolesObjetos={rolesObjetos}
+                  setRolesObjetos={setRolesObjetos}
                   usuarios={usuarios}
                   setUsuarios={setUsuarios}
                   setUsuariosFiltrados={setUsuariosFiltrados}

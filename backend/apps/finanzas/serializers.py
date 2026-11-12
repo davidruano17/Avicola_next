@@ -3,31 +3,7 @@ import json
 from rest_framework import serializers
 from .models import FinanzasUdAvicola
 from apps.galpones.models import Galpon
-
-def resolver_galpon(valor):
-    if not valor:
-        return Galpon.objects.first()
-    if isinstance(valor, Galpon):
-        return valor
-    if isinstance(valor, dict):
-        valor = valor.get('id') or valor.get('galpon_id')
-    try:
-        val_int = int(str(valor).strip())
-        g = Galpon.objects.filter(galpon_id=val_int).first()
-        if g:
-            return g
-    except (ValueError, TypeError):
-        pass
-
-    str_val = str(valor).strip()
-    digits = re.findall(r'\d+', str_val)
-    if digits:
-        val_int = int(digits[0])
-        g = Galpon.objects.filter(galpon_id=val_int).first()
-        if g:
-            return g
-
-    return Galpon.objects.first()
+from apps.galpones.serializers import resolver_galpon, obtener_numero_galpon
 
 
 class FinanzasUdAvicolaSerializer(serializers.ModelSerializer):
@@ -149,8 +125,8 @@ class FinanzasUdAvicolaSerializer(serializers.ModelSerializer):
 
     def get_galpon(self, obj):
         if not obj.galpon:
-            return "Galpón 01"
-        return f"Galpón {str(obj.galpon.galpon_id).zfill(2)}"
+            return "Galpón 1"
+        return f"Galpón {obtener_numero_galpon(obj.galpon)}"
 
     def to_internal_value(self, data):
         data = data.copy() if hasattr(data, 'copy') else dict(data)
@@ -163,7 +139,11 @@ class FinanzasUdAvicolaSerializer(serializers.ModelSerializer):
         if 'monto' in data and 'fnzs_monto_total' not in data:
             data['fnzs_monto_total'] = float(data['monto'] or 0)
         if 'estado' in data and 'fnzs_estado_operacion' not in data:
-            data['fnzs_estado_operacion'] = data['estado']
+            est_val = str(data['estado']).strip()
+            if est_val in ['Completado', 'Pendiente', 'Cancelado']:
+                data['fnzs_estado_operacion'] = est_val
+            else:
+                data['fnzs_estado_operacion'] = 'Pendiente'
 
         if 'tipoHuevos' in data and 'fnzs_clasificacion_panal' not in data:
             val_h = data['tipoHuevos']
@@ -196,8 +176,6 @@ class FinanzasUdAvicolaSerializer(serializers.ModelSerializer):
         # Resolver Galpón
         raw_galpon = data.get('galpon') or data.get('galpon_id')
         galpon_obj = resolver_galpon(raw_galpon)
-        if galpon_obj:
-            data['galpon'] = galpon_obj.galpon_id
 
         # Empacar metadatos en fnzs_concepto_operacion
         concepto_base = str(data.get('concepto') or data.get('fnzs_concepto_operacion') or 'Operación Avícola').strip()
@@ -221,4 +199,25 @@ class FinanzasUdAvicolaSerializer(serializers.ModelSerializer):
         else:
             data['fnzs_concepto_operacion'] = concepto_base[:255]
 
-        return super().to_internal_value(data)
+        ret = super().to_internal_value(data)
+        if galpon_obj:
+            ret['galpon'] = galpon_obj
+        return ret
+
+    def to_representation(self, instance):
+        ret = super().to_representation(instance)
+        colores_categorias = {
+            "Alimentos": "bg-emerald-100 text-emerald-800",
+            "Venta de Huevos": "bg-blue-100 text-blue-800",
+            "Salud/Vet": "bg-rose-100 text-rose-800",
+            "Infraestructura": "bg-amber-100 text-amber-800",
+        }
+        colores_estados = {
+            "Completado": "bg-green-100 text-green-800",
+            "Pendiente": "bg-yellow-100 text-yellow-800",
+            "Atrasado": "bg-red-100 text-red-800",
+            "Cancelado": "bg-red-100 text-red-800",
+        }
+        ret['catStyle'] = colores_categorias.get(ret.get('categoria'), "bg-slate-100 text-slate-800")
+        ret['estStyle'] = colores_estados.get(ret.get('estado'), "bg-green-100 text-green-800")
+        return ret

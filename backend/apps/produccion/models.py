@@ -38,7 +38,7 @@ class ClasificacionHuevos(models.Model):
     clas_observaciones = models.CharField(max_length=300, null=True, blank=True)
     galpon = models.ForeignKey('galpones.Galpon', on_delete=models.RESTRICT, db_column='galpon_id', related_name='clasificaciones')
     usuario = models.ForeignKey('usuarios.Usuario', on_delete=models.RESTRICT, db_column='usuario_id', related_name='clasificaciones')
-    produccion = models.OneToOneField('produccion.ProduccionHuevos', on_delete=models.RESTRICT, db_column='produccion_id', related_name='clasificacion')
+    produccion = models.OneToOneField('produccion.ProduccionHuevos', on_delete=models.SET_NULL, db_column='produccion_id', related_name='clasificacion', null=True, blank=True)
 
     class Meta:
         managed = False

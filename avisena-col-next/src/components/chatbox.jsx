@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ImagePlus, MessageCircle, Minus, Send, X } from "lucide-react";
+import api from "@/services/api";
 
 const chickenIcon = "/assets/images/gallina%20(1).png";
 const maxImageSize = 10 * 1024 * 1024;
@@ -51,21 +52,55 @@ export default function ChatBox() {
   const requestController = useRef(null);
   const imageInput = useRef(null);
 
-  const getFarmData = () => {
-    return Object.fromEntries(
-      Object.entries(farmDataKeys).map(([name, key]) => {
-        const saved = localStorage.getItem(key);
-        if (!saved) return [name, []];
+  const getFarmData = async () => {
+    try {
+      const [prodRes, clasRes, mortRes, morbRes, dashRes] = await Promise.all([
+        api.get('/produccion/').catch(() => null),
+        api.get('/produccion/clasificacion/').catch(() => null),
+        api.get('/sanidad/mortalidad/').catch(() => null),
+        api.get('/sanidad/morbilidad/').catch(() => null),
+        api.get('/reportes/dashboard/').catch(() => null),
+      ]);
 
-        try {
-          const records = JSON.parse(saved);
-          return [name, Array.isArray(records) ? records.slice(-20) : []];
-        } catch (error) {
-          console.error(`No se pudieron leer los datos locales de ${name}:`, error);
-          return [name, []];
+      const extraerLista = (res, fallbackKey) => {
+        const arr = Array.isArray(res) ? res : (res?.results || null);
+        if (Array.isArray(arr)) {
+          localStorage.setItem(fallbackKey, JSON.stringify(arr));
+          return arr.slice(-20);
         }
-      })
-    );
+        try {
+          const saved = localStorage.getItem(fallbackKey);
+          const records = saved ? JSON.parse(saved) : [];
+          return Array.isArray(records) ? records.slice(-20) : [];
+        } catch {
+          return [];
+        }
+      };
+
+      return {
+        producciones: extraerLista(prodRes, "produccionesPendientes"),
+        clasificaciones: extraerLista(clasRes, "avisena_storage"),
+        mortalidad: extraerLista(mortRes, "registrosMortalidad"),
+        morbilidad: extraerLista(morbRes, "historialMorbilidad"),
+        resumenGeneral: dashRes?.resumen_general || null,
+        balanceFinanciero: dashRes?.balance_financiero || null,
+      };
+    } catch {
+      return Object.fromEntries(
+        Object.entries(farmDataKeys).map(([name, key]) => {
+          const saved = localStorage.getItem(key);
+          if (!saved) return [name, []];
+
+          try {
+            const records = JSON.parse(saved);
+            return [name, Array.isArray(records) ? records.slice(-20) : []];
+          } catch (error) {
+            console.error(`No se pudieron leer los datos locales de ${name}:`, error);
+            return [name, []];
+          }
+        })
+      );
+    }
   };
 
   const handleImageChange = (event) => {
@@ -114,10 +149,11 @@ export default function ChatBox() {
     requestController.current = controller;
 
     try {
+      const farmContext = await getFarmData();
       const formData = new FormData();
       formData.append("message", userMessage.content);
       formData.append("history", JSON.stringify(conversationHistory));
-      formData.append("farmData", JSON.stringify(getFarmData()));
+      formData.append("farmData", JSON.stringify(farmContext));
       if (submittedImage) formData.append("image", submittedImage);
 
       const response = await fetch("/api/chat", {

@@ -68,6 +68,7 @@ export default function FinanzasAvicolas() {
   const [fechaFin, setFechaFin] = useState("");
 
   const [transacciones, setTransacciones] = useState([]);
+  const [galponesDisponibles, setGalponesDisponibles] = useState([]);
   const [nuevaTransaccion, setNuevaTransaccion] = useState(estadoInicialFormulario);
   const [cargado, setCargado] = useState(false);
 
@@ -76,7 +77,21 @@ export default function FinanzasAvicolas() {
     if (typeof window === "undefined") return;
     async function cargarTransacciones() {
       try {
-        const res = await api.get('/finanzas/').catch(() => null);
+        await api.sincronizarPendientes().catch(() => {});
+        const [res, galpRes] = await Promise.all([
+          api.get('/finanzas/').catch(() => null),
+          api.get('/galpones/').catch(() => null),
+        ]);
+        const gLista = Array.isArray(galpRes) ? galpRes : (galpRes?.results || []);
+        if (gLista.length > 0) {
+          setGalponesDisponibles(gLista);
+          localStorage.setItem("historialgalpones", JSON.stringify(gLista));
+        } else {
+          try {
+            const gLocal = JSON.parse(localStorage.getItem("historialgalpones") || "[]");
+            if (Array.isArray(gLocal)) setGalponesDisponibles(gLocal);
+          } catch {}
+        }
         const lista = Array.isArray(res) ? res : (res?.results || []);
         if (lista.length > 0) {
           setTransacciones(lista);
@@ -301,7 +316,7 @@ export default function FinanzasAvicolas() {
     });
   };
 
-  const manejarGuardarRegistro = (e) => {
+  const manejarGuardarRegistro = async (e) => {
     e.preventDefault();
     if (!nuevaTransaccion.concepto || !nuevaTransaccion.monto) return;
 
@@ -320,7 +335,7 @@ export default function FinanzasAvicolas() {
 
     const nuevosRegistros = [];
 
-    const principalItem = {
+    let principalItem = {
       id: Date.now(),
       fecha: nuevaTransaccion.fecha || obtenerFechaHoyStr(),
       galpon: nuevaTransaccion.galpon,
@@ -338,16 +353,21 @@ export default function FinanzasAvicolas() {
       desgloseInventario: nuevaTransaccion.esMultiClasificada ? nuevaTransaccion.desgloseInventario : null
     };
 
-    nuevosRegistros.push(principalItem);
-
     try {
-      api.post('/finanzas/', principalItem).catch(err => console.warn("Fallo al guardar finanzas en API:", err));
-    } catch (e) {}
+      const creado = await api.post('/finanzas/', principalItem);
+      if (creado && creado.id) {
+        principalItem = { ...principalItem, ...creado };
+      }
+    } catch (err) {
+      console.warn("Fallo al guardar finanzas en API:", err);
+    }
+
+    nuevosRegistros.push(principalItem);
 
     if (nuevaTransaccion.tipo === "Ingreso" && nuevaTransaccion.asociarGastoInmediato) {
       const montoGasto = parseFloat(nuevaTransaccion.montoGastoAsociado) || 0;
       if (montoGasto > 0) {
-        const itemGasto = {
+        let itemGasto = {
           id: Date.now() + 1,
           fecha: nuevaTransaccion.fecha || obtenerFechaHoyStr(),
           galpon: nuevaTransaccion.galpon,
@@ -360,10 +380,15 @@ export default function FinanzasAvicolas() {
           catStyle: coloresCategorias["Alimentos"],
           estStyle: coloresEstados["Completado"]
         };
-        nuevosRegistros.push(itemGasto);
         try {
-          api.post('/finanzas/', itemGasto).catch(err => console.warn("Fallo al guardar gasto asociado en API:", err));
-        } catch (e) {}
+          const creadoGasto = await api.post('/finanzas/', itemGasto);
+          if (creadoGasto && creadoGasto.id) {
+            itemGasto = { ...itemGasto, ...creadoGasto };
+          }
+        } catch (err) {
+          console.warn("Fallo al guardar gasto asociado en API:", err);
+        }
+        nuevosRegistros.push(itemGasto);
       }
     }
 
@@ -775,10 +800,26 @@ export default function FinanzasAvicolas() {
                     value={nuevaTransaccion.galpon}
                     onChange={e => setNuevaTransaccion({ ...nuevaTransaccion, galpon: e.target.value })}
                   >
-                    <option value="Galpón 1">Galpón 1</option>
-                    <option value="Galpón 2">Galpón 2</option>
-                    <option value="Galpón 3">Galpón 3</option>
-                    <option value="Galpón 4">Galpón 4</option>
+                    {galponesDisponibles.length > 0 ? (
+                      Array.from(
+                        new Map(
+                          galponesDisponibles.map(g => {
+                            const num = String(g.galp_numero_galpon ?? g.numeroGalpon ?? g.galpon ?? g.lote ?? '1').replace(/\D/g, '') || '1';
+                            const label = `Galpón ${num}`;
+                            return [label, label];
+                          })
+                        ).values()
+                      ).map(label => (
+                        <option key={label} value={label}>{label}</option>
+                      ))
+                    ) : (
+                      <>
+                        <option value="Galpón 1">Galpón 1</option>
+                        <option value="Galpón 2">Galpón 2</option>
+                        <option value="Galpón 3">Galpón 3</option>
+                        <option value="Galpón 4">Galpón 4</option>
+                      </>
+                    )}
                   </select>
                 </span>
               </span>

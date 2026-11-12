@@ -6,6 +6,8 @@ import api from "@/services/api";
 export default function RolesGestionUsuarios({
   roles,
   setRoles,
+  rolesObjetos = [],
+  setRolesObjetos,
   usuarios,
   setUsuarios,
   setUsuariosFiltrados,
@@ -38,7 +40,12 @@ export default function RolesGestionUsuarios({
     }
 
     try {
-      await api.post('/roles/', { nombre: nuevoRol.trim() });
+      const creado = await api.post('/roles/', { nombre: nuevoRol.trim() });
+      if (creado && setRolesObjetos) {
+        const nuevosObj = [...rolesObjetos, creado];
+        setRolesObjetos(nuevosObj);
+        localStorage.setItem("roles_objetos", JSON.stringify(nuevosObj));
+      }
     } catch (err) {
       console.warn("Fallo al registrar rol en API, guardando en respaldo:", err);
     }
@@ -67,8 +74,28 @@ export default function RolesGestionUsuarios({
     setModalEliminarRol(true);
   };
 
-  const confirmarEliminarRol = () => {
+  const confirmarEliminarRol = async () => {
     if (!rolAEliminar) return;
+
+    const rolObj = rolesObjetos.find(
+      (r) => (r.nombre || r.rol_nombre || "").toLowerCase() === rolAEliminar.toLowerCase()
+    );
+    const rolId = rolObj?.id || rolObj?.rol_id;
+    if (rolId) {
+      try {
+        await api.delete(`/roles/${rolId}/`);
+      } catch (err) {
+        console.warn("Fallo al eliminar rol en API, actualizando respaldo local:", err);
+      }
+    }
+
+    if (setRolesObjetos) {
+      const nuevosObj = rolesObjetos.filter(
+        (r) => (r.nombre || r.rol_nombre || "").toLowerCase() !== rolAEliminar.toLowerCase()
+      );
+      setRolesObjetos(nuevosObj);
+      localStorage.setItem("roles_objetos", JSON.stringify(nuevosObj));
+    }
 
     const nuevosRoles = roles.filter((rol) => rol !== rolAEliminar);
 
@@ -85,7 +112,7 @@ export default function RolesGestionUsuarios({
     setNombreEditado(rol);
   };
 
-  const guardarEdicion = (rolViejo) => {
+  const guardarEdicion = async (rolViejo) => {
     if (!nombreEditado.trim()) return;
 
     if (nombreEditado.trim() === rolViejo) {
@@ -103,6 +130,28 @@ export default function RolesGestionUsuarios({
     ) {
       alert("Ese rol ya existe");
       return;
+    }
+
+    const rolObj = rolesObjetos.find(
+      (r) => (r.nombre || r.rol_nombre || "").toLowerCase() === rolViejo.toLowerCase()
+    );
+    const rolId = rolObj?.id || rolObj?.rol_id;
+    if (rolId) {
+      try {
+        await api.put(`/roles/${rolId}/`, { nombre: nombreEditado.trim() });
+      } catch (err) {
+        console.warn("Fallo al editar rol en API, actualizando respaldo local:", err);
+      }
+    }
+
+    if (setRolesObjetos) {
+      const nuevosObj = rolesObjetos.map((r) =>
+        (r.nombre || r.rol_nombre || "").toLowerCase() === rolViejo.toLowerCase()
+          ? { ...r, nombre: nombreEditado.trim(), rol_nombre: nombreEditado.trim() }
+          : r
+      );
+      setRolesObjetos(nuevosObj);
+      localStorage.setItem("roles_objetos", JSON.stringify(nuevosObj));
     }
 
     const nuevosRoles = roles.map((rol) =>

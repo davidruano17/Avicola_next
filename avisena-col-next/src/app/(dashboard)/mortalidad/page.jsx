@@ -68,26 +68,36 @@ export default function Page() {
   useEffect(() => {
     async function cargarDatos() {
       try {
+        await api.sincronizarPendientes().catch(() => { });
         const [mortRes, galpRes] = await Promise.all([
           api.get('/sanidad/mortalidad/').catch(() => null),
           api.get('/galpones/').catch(() => null)
         ]);
 
         const mortList = Array.isArray(mortRes) ? mortRes : (mortRes?.results || []);
-        if (mortList.length > 0) {
-          // Preservar registros locales creados sin conexión pendientes de sincronizar
-          const guardados = JSON.parse(localStorage.getItem("registrosMortalidad")) || [];
-          const pendientesLocales = guardados.filter(g =>
-            !mortList.some(m => String(m.id) === String(g.id)) &&
-            (typeof g.id === 'string' && g.id.startsWith('temp_') || Number(g.id) > 100000000000)
-          );
-          const combinados = [...pendientesLocales, ...mortList];
-          setRegistros(combinados);
-          localStorage.setItem("registrosMortalidad", JSON.stringify(combinados));
-        } else {
-          const guardados = JSON.parse(localStorage.getItem("registrosMortalidad")) || [];
-          setRegistros(guardados);
+        const guardados = JSON.parse(localStorage.getItem("registrosMortalidad")) || [];
+        const pendientesLocales = guardados.filter(g =>
+          !mortList.some(m => String(m.id) === String(g.id)) &&
+          ((typeof g.id === 'string' && g.id.startsWith('temp_')) || Number(g.id) > 100000000000)
+        );
+
+        const migrados = [];
+        for (const loc of pendientesLocales) {
+          try {
+            const creado = await api.post('/sanidad/mortalidad/', loc);
+            if (creado && creado.id && Number(creado.id) < 100000000000) {
+              migrados.push(creado);
+            } else {
+              migrados.push(loc);
+            }
+          } catch {
+            migrados.push(loc);
+          }
         }
+
+        const combinados = [...migrados, ...mortList];
+        setRegistros(combinados);
+        localStorage.setItem("registrosMortalidad", JSON.stringify(combinados));
 
         const galpList = Array.isArray(galpRes) ? galpRes : (galpRes?.results || []);
         if (galpList.length > 0) {
@@ -195,24 +205,33 @@ export default function Page() {
   async function editarRegistro(registroActualizado, registroAnterior) {
     if (!registroAnterior) return;
 
+    let registroFinal = registroActualizado;
+    const idReal = Number(registroActualizado.mortalidad_id ?? registroActualizado.id);
+
     try {
-      if (registroActualizado.id && typeof registroActualizado.id === 'number' && registroActualizado.id < 100000000000) {
-        await api.put(`/sanidad/mortalidad/${registroActualizado.id}/`, registroActualizado);
+      if (idReal && !isNaN(idReal) && idReal < 100000000000) {
+        const res = await api.put(`/sanidad/mortalidad/${idReal}/`, registroActualizado);
+        if (res && res.id) registroFinal = res;
+      } else {
+        const res = await api.post('/sanidad/mortalidad/', registroActualizado);
+        if (res && res.id) registroFinal = res;
       }
     } catch (err) {
       console.warn("Fallo al actualizar mortalidad en API, usando respaldo local:", err);
     }
 
     const anteriorCantidad = Number(registroAnterior.cantidad || 0);
-    const nuevaCantidad = Number(registroActualizado.cantidad || 0);
+    const nuevaCantidad = Number(registroFinal.cantidad || 0);
     const anteriorGalpon = registroAnterior.galpon;
-    const nuevoGalpon = registroActualizado.galpon;
+    const nuevoGalpon = registroFinal.galpon;
     const anteriorGalponId = registroAnterior.galponId;
-    const nuevoGalponId = registroActualizado.galponId;
+    const nuevoGalponId = registroFinal.galponId;
 
     // 1. Actualizar registro en lista
     setRegistros((prev) => {
-      const actualizados = prev.map((r) => (r.id === registroActualizado.id ? registroActualizado : r));
+      const actualizados = prev.map((r) =>
+        r.id === registroAnterior.id || r.id === registroActualizado.id ? registroFinal : r
+      );
       localStorage.setItem("registrosMortalidad", JSON.stringify(actualizados));
       return actualizados;
     });
@@ -333,7 +352,7 @@ export default function Page() {
   }, [registros, cargado]);
   return (
     <>
-      <div className="bg-[#f6f7f8] dark:bg-[#141d1e] text-slate-900 dark:text-slate-100 min-h-screen font-sans">
+      <div className="text-slate-900 dark:text-slate-100 min-h-screen font-sans">
         <main className="w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
           <header className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6 sm:mb-8">
             <section className="flex flex-col gap-1 max-w-3xl">

@@ -107,14 +107,28 @@ export default function ClasificacionView() {
   }, []);
 
   useEffect(() => {
-    const pendingSaved = localStorage.getItem("produccionesPendientes");
-    if (pendingSaved) {
+    async function sincronizarPendientes() {
       try {
-        setProduccionesPendientes(JSON.parse(pendingSaved));
+        const res = await api.get('/produccion/pendientes/').catch(() => null);
+        const pList = Array.isArray(res) ? res : (res?.results || []);
+        if (pList.length > 0) {
+          setProduccionesPendientes(pList);
+          localStorage.setItem("produccionesPendientes", JSON.stringify(pList));
+          return;
+        }
       } catch (e) {
-        console.error("Error al cargar produccionesPendientes:", e);
+        console.error("Error al consultar produccionesPendientes en API:", e);
+      }
+      const pendingSaved = localStorage.getItem("produccionesPendientes");
+      if (pendingSaved) {
+        try {
+          setProduccionesPendientes(JSON.parse(pendingSaved));
+        } catch (e) {
+          console.error("Error al cargar produccionesPendientes:", e);
+        }
       }
     }
+    sincronizarPendientes();
   }, [modals.registro]);
 
   const handleDesvincularRecoleccion = () => {
@@ -131,23 +145,34 @@ export default function ClasificacionView() {
   useEffect(() => {
     async function cargarClasificaciones() {
       try {
-        const res = await api.get('/produccion/clasificacion/').catch(() => null);
+        await api.sincronizarPendientes().catch(() => {});
+        const [res, pendRes] = await Promise.all([
+          api.get('/produccion/clasificacion/').catch(() => null),
+          api.get('/produccion/pendientes/').catch(() => null),
+        ]);
         const lista = Array.isArray(res) ? res : (res?.results || []);
-        if (lista.length > 0) {
+        if (Array.isArray(res) || Array.isArray(res?.results)) {
           setHistorial(lista);
           localStorage.setItem("avisena_storage", JSON.stringify(lista));
         } else {
           const saved = localStorage.getItem("avisena_storage");
           if (saved) setHistorial(JSON.parse(saved));
         }
+        const pList = Array.isArray(pendRes) ? pendRes : (pendRes?.results || []);
+        if (Array.isArray(pendRes) || Array.isArray(pendRes?.results)) {
+          setProduccionesPendientes(pList);
+          localStorage.setItem("produccionesPendientes", JSON.stringify(pList));
+        }
       } catch (err) {
         const saved = localStorage.getItem("avisena_storage");
         if (saved) setHistorial(JSON.parse(saved));
       }
     }
-    cargarClasificaciones();
     const saved = localStorage.getItem('avisena_storage');
-    if (saved) setHistorial(JSON.parse(saved));
+    if (saved) {
+      try { setHistorial(JSON.parse(saved)); } catch {}
+    }
+    cargarClasificaciones();
   }, []);
 
   useEffect(() => {
@@ -203,8 +228,9 @@ export default function ClasificacionView() {
 
   const obtenerSiguienteId = () => {
     if (historial.length === 0) return 1;
-    const ultimoId = historial[historial.length - 1].id;
-    const num = parseInt(ultimoId.split('-')[1]);
+    const ultimoId = String(historial[historial.length - 1].codigo || historial[historial.length - 1].id || "");
+    const partes = ultimoId.split('-');
+    const num = parseInt(partes.length > 1 ? partes[1] : partes[0], 10);
     return isNaN(num) ? historial.length + 1 : num + 1;
   };
 
@@ -303,7 +329,7 @@ export default function ClasificacionView() {
     setStep(2);
   };
 
-  const handleSave = (e) => {
+  const handleSave = async (e) => {
     e.preventDefault();
 
     if (produccionOrigen && totales.unidades !== Number(produccionOrigen.huevosBuenos)) {
@@ -320,7 +346,7 @@ export default function ClasificacionView() {
       };
     });
 
-    const registro = {
+    let registro = {
       id: `REC-${String(obtenerSiguienteId()).padStart(3, '0')}`,
       fecha: generalInfo.fecha,
       galpon: generalInfo.galpon,
@@ -335,16 +361,26 @@ export default function ClasificacionView() {
       totalSobrantes: totalSobrantesUnidades
     };
 
+    try {
+      const creado = await api.post('/produccion/clasificacion/', {
+        ...registro,
+        produccion: produccionOrigen?.id && Number(produccionOrigen.id) < 100000000000 ? produccionOrigen.id : null,
+      });
+      if (creado && (creado.id || creado.clasificacion_id)) {
+        registro = {
+          ...registro,
+          ...creado,
+          id: creado.codigo || `REC-${String(creado.id || creado.clasificacion_id).padStart(3, '0')}`,
+          clasificacion_id: creado.clasificacion_id || creado.id,
+        };
+      }
+    } catch (err) {
+      console.warn("Fallo al guardar clasificación en API, usando respaldo local:", err);
+    }
+
     const nuevoHistorial = [...historial, registro];
     setHistorial(nuevoHistorial);
     localStorage.setItem('avisena_storage', JSON.stringify(nuevoHistorial));
-
-    try {
-      api.post('/produccion/clasificacion/', {
-        ...registro,
-        produccion: produccionOrigen?.id,
-      }).catch(err => console.warn("Fallo al guardar clasificación en API:", err));
-    } catch (err) { }
 
     if (produccionOrigen) {
       const pendingSaved = localStorage.getItem("produccionesPendientes");
@@ -381,11 +417,28 @@ export default function ClasificacionView() {
     openModal('detalle');
   };
 
-  const eliminarRegistro = (index) => {
+  const eliminarRegistro = async (index) => {
     if (window.confirm("¿Estás seguro de eliminar este registro permanentemente?")) {
+      const item = historialFiltrado[index] || historial[index];
+      if (item) {
+        const rawId = item.clasificacion_id ?? item.id;
+        const dbId = typeof rawId === 'number'
+          ? rawId
+          : (typeof rawId === 'string' && /^\d+$/.test(rawId)
+            ? Number(rawId)
+            : (typeof rawId === 'string' && rawId.startsWith('REC-')
+              ? Number(rawId.replace('REC-', ''))
+              : null));
+        if (dbId && !isNaN(dbId) && dbId < 100000000000) {
+          try {
+            await api.delete(`/produccion/clasificacion/${dbId}/`);
+          } catch (err) {
+            console.warn("Fallo al eliminar clasificación en API, usando respaldo local:", err);
+          }
+        }
+      }
       setHistorial(prev => {
-        const copy = [...prev];
-        copy.splice(index, 1);
+        const copy = prev.filter((r, i) => (item ? r !== item : i !== index));
         localStorage.setItem('avisena_storage', JSON.stringify(copy));
         return copy;
       });
@@ -494,7 +547,7 @@ export default function ClasificacionView() {
                     </td>
                     <td className="p-4">
                       <span className="inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200 w-max">
-                        Galpón {reg.galpon}
+                        Galpón {String(reg.galpon || '').replace(/^galp[oó]n\s*/i, '')}
                       </span>
                     </td>
                     <td className="p-4">

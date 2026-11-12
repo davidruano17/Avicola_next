@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import api from "@/services/api";
 
 export default function ModalEditarUsuario({
   abierto,
@@ -48,7 +49,7 @@ export default function ModalEditarUsuario({
     }
   }, [usuario]);
 
-  function guardarCambios() {
+  async function guardarCambios() {
     if (cambiarPassword) {
       const p1 = nuevaPassword.trim();
       const p2 = confirmarPassword.trim();
@@ -57,8 +58,8 @@ export default function ModalEditarUsuario({
         setErrorPassword("Debe ingresar la nueva contraseña");
         return;
       }
-      if (p1.length < 4) {
-        setErrorPassword("La contraseña debe tener al menos 4 caracteres");
+      if (p1.length < 8) {
+        setErrorPassword("La contraseña debe tener al menos 8 caracteres");
         return;
       }
       if (p1 !== p2) {
@@ -67,11 +68,27 @@ export default function ModalEditarUsuario({
       }
     }
 
+    const payload = { ...datos };
+    if (cambiarPassword && nuevaPassword.trim()) {
+      payload.password = nuevaPassword.trim();
+    }
+
+    let respuestaApi = null;
+    if (usuario?.id && Number(usuario.id) < 100000000000) {
+      try {
+        respuestaApi = await api.patch(`/usuarios/${usuario.id}/`, payload);
+      } catch (err) {
+        console.warn("Fallo al actualizar usuario en API, guardando en respaldo local:", err);
+      }
+    }
+
     const nuevosUsuarios = usuarios.map((u) => {
       if (u.id === usuario.id) {
         const actualizado = {
           ...u,
           ...datos,
+          ...(respuestaApi || {}),
+          estado: ((respuestaApi?.estado || u.estado || "ACTIVO")).toUpperCase(),
         };
         if (cambiarPassword && nuevaPassword.trim()) {
           actualizado.password = nuevaPassword.trim();

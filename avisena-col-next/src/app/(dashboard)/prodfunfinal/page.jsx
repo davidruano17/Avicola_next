@@ -250,11 +250,19 @@ const DashboardProduccion = () => {
     if (typeof window === "undefined") return;
     async function cargarDesdeAPI() {
       try {
-        const [pendientesRes, historialRes, alimentoRes] = await Promise.all([
+        await api.sincronizarPendientes().catch(() => {});
+        const [pendientesRes, historialRes, alimentoRes, galponesRes] = await Promise.all([
           api.get('/produccion/pendientes/').catch(() => null),
           api.get('/produccion/').catch(() => null),
           api.get('/produccion/alimentacion/').catch(() => null),
+          api.get('/galpones/').catch(() => null),
         ]);
+
+        const gList = Array.isArray(galponesRes) ? galponesRes : (galponesRes?.results || []);
+        if (gList.length > 0) {
+          setRegistrosGalpones(gList);
+          localStorage.setItem("historialgalpones", JSON.stringify(gList));
+        }
 
         const pList = Array.isArray(pendientesRes) ? pendientesRes : (pendientesRes?.results || []);
         if (pList.length > 0) {
@@ -288,10 +296,14 @@ const DashboardProduccion = () => {
 
         const aList = Array.isArray(alimentoRes) ? alimentoRes : (alimentoRes?.results || []);
         if (aList.length > 0) {
-          const totalKg = aList.reduce((sum, item) => sum + Number(item.cantidad || 0), 0);
+          const totalKg = aList.reduce((sum, item) => sum + Number(item.kg ?? item.cantidad ?? item.alim_cant_alimento ?? 0), 0);
           setAlimentoMes({
             mes: mesActual,
-            registros: aList.map(a => ({ id: a.id, fecha: a.fecha, kg: a.cantidad })),
+            registros: aList.map(a => ({
+              id: a.id,
+              fecha: a.fecha,
+              kg: Number(a.kg ?? a.cantidad ?? a.alim_cant_alimento ?? 0),
+            })),
             total: +totalKg.toFixed(2),
           });
         } else {
@@ -608,18 +620,20 @@ const DashboardProduccion = () => {
     e.preventDefault();
     const kg = parseFloat(alimentoInput);
     if (!isNaN(kg) && kg > 0) {
-      try {
-        await api.post('/produccion/alimentacion/', {
-          fecha: hoy,
-          galpon: galponOrigen,
-          cantidad: kg,
-          costo: 0,
-          observaciones: "Registro diario de alimentación",
-        });
-      } catch (err) {
-        console.warn("Fallo al guardar alimentación en API, usando respaldo local:", err);
-      }
       if (alimentoEnEdicion) {
+        try {
+          if (alimentoEnEdicion.id && Number(alimentoEnEdicion.id) < 100000000000) {
+            await api.put(`/produccion/alimentacion/${alimentoEnEdicion.id}/`, {
+              fecha: alimentoEnEdicion.fecha || hoy,
+              galpon: galponOrigen,
+              kg,
+              cantidad: kg,
+              observaciones: "Registro diario de alimentación",
+            });
+          }
+        } catch (err) {
+          console.warn("Fallo al actualizar alimentación en API, usando respaldo local:", err);
+        }
         setAlimentoMes(prev => {
           const nuevosRegistros = prev.registros.map(r =>
             r.id === alimentoEnEdicion.id ? { ...r, kg } : r
@@ -633,8 +647,22 @@ const DashboardProduccion = () => {
         });
         setAlimentoEnEdicion(null);
       } else {
+        let nuevoAlimentoId = Date.now();
+        try {
+          const res = await api.post('/produccion/alimentacion/', {
+            fecha: hoy,
+            galpon: galponOrigen,
+            kg,
+            cantidad: kg,
+            costo: 0,
+            observaciones: "Registro diario de alimentación",
+          });
+          if (res && res.id) nuevoAlimentoId = res.id;
+        } catch (err) {
+          console.warn("Fallo al guardar alimentación en API, usando respaldo local:", err);
+        }
         setAlimentoMes(prev => {
-          const nuevosRegistros = [...prev.registros, { id: Date.now(), fecha: hoy, kg }];
+          const nuevosRegistros = [...prev.registros, { id: nuevoAlimentoId, fecha: hoy, kg }];
           const nuevoTotal = nuevosRegistros.reduce((sum, r) => sum + Number(r.kg || 0), 0);
           return {
             ...prev,
@@ -659,7 +687,14 @@ const DashboardProduccion = () => {
     setAlimentoInput(teoricoStr);
   };
 
-  const handleEliminarAlimento = (id) => {
+  const handleEliminarAlimento = async (id) => {
+    try {
+      if (id && Number(id) < 100000000000) {
+        await api.delete(`/produccion/alimentacion/${id}/`);
+      }
+    } catch (err) {
+      console.warn("Fallo al eliminar alimentación en API, usando respaldo local:", err);
+    }
     setAlimentoMes(prev => {
       const nuevosRegistros = prev.registros.filter(r => r.id !== id);
       const nuevoTotal = nuevosRegistros.reduce((sum, r) => sum + Number(r.kg || 0), 0);
@@ -676,9 +711,16 @@ const DashboardProduccion = () => {
     }
   };
 
-  const handleResetAlimentoMes = () => {
-    if (window.confirm("¿Resetear el alimento registrado este mes a 0 kg?"))
+  const handleResetAlimentoMes = async () => {
+    if (window.confirm("¿Resetear el alimento registrado este mes a 0 kg?")) {
+      const registrosActuales = alimentoMes.registros || [];
+      await Promise.allSettled(
+        registrosActuales
+          .filter(r => r.id && Number(r.id) < 100000000000)
+          .map(r => api.delete(`/produccion/alimentacion/${r.id}/`))
+      );
       setAlimentoMes(prev => ({ ...prev, total: 0, registros: [] }));
+    }
   };
 
   const handleResetHuevosMes = () => {
@@ -705,10 +747,30 @@ const DashboardProduccion = () => {
     URL.revokeObjectURL(url);
   };
 
-  const handleDeleteItem = (i) => setHistorial(prev => prev.filter((_, idx) => idx !== i));
-  const handleClearHistorial = () => {
-    if (window.confirm("¿Borrar todo el historial? Esta acción no se puede deshacer."))
+  const handleDeleteItem = async (i) => {
+    const item = historial[i];
+    if (item?.id && Number(item.id) < 100000000000) {
+      try {
+        await api.delete(`/produccion/${item.id}/`);
+      } catch (err) {
+        console.warn("Fallo al eliminar producción en API, usando respaldo local:", err);
+      }
+    }
+    setHistorial(prev => prev.filter((_, idx) => idx !== i));
+    if (item?.id) {
+      setProduccionesPendientes(prev => prev.filter(p => String(p.id) !== String(item.id)));
+    }
+  };
+  const handleClearHistorial = async () => {
+    if (window.confirm("¿Borrar todo el historial? Esta acción no se puede deshacer.")) {
+      await Promise.allSettled(
+        historial
+          .filter(item => item?.id && Number(item.id) < 100000000000)
+          .map(item => api.delete(`/produccion/${item.id}/`))
+      );
       setHistorial([]);
+      setProduccionesPendientes([]);
+    }
   };
 
   /* ─── Clase unificada para todos los inputs ─── */

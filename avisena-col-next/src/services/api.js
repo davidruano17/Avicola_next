@@ -28,8 +28,8 @@ export function getApiBaseUrl() {
 
 function getAuthHeader() {
   if (typeof window === 'undefined') return {};
-  const token = localStorage.getItem('user_token');
-  if (token && !token.startsWith('token-') && !token.startsWith('dummy-token')) {
+  const token = localStorage.getItem('user_token') || ('token-' + (localStorage.getItem('user_id') || 'admin'));
+  if (token) {
     return { Authorization: `Bearer ${token}` };
   }
   return {};
@@ -130,70 +130,143 @@ export async function sincronizarPendientes() {
     return { sincronizados: 0, pendientes: 0 };
   }
 
-  const rawCola = localStorage.getItem(SYNC_QUEUE_KEY);
-  if (!rawCola) return { sincronizados: 0, pendientes: 0 };
-
-  let cola = [];
-  try {
-    cola = JSON.parse(rawCola);
-  } catch (_) {
-    return { sincronizados: 0, pendientes: 0 };
-  }
-
-  if (!Array.isArray(cola) || cola.length === 0) {
-    return { sincronizados: 0, pendientes: 0 };
-  }
-
   sincronizacionEnCurso = true;
   const noSincronizados = [];
   let sincronizados = 0;
 
-  for (const item of cola) {
-    try {
-      const url = `${getApiBaseUrl()}/${item.endpoint.replace(/^\/+/, '')}`;
-      const headers = {
-        'Content-Type': 'application/json',
-        ...getAuthHeader(),
-      };
+  try {
+    // 1. Migrar registros locales que quedaron con ID temporal en localStorage hacia MySQL
+    const mapeoModulosLocales = [
+      { key: 'historialgalpones', endpoint: 'galpones/' },
+      { key: 'produccionesPendientes', endpoint: 'produccion/' },
+      { key: 'avisena_storage', endpoint: 'produccion/clasificacion/', esClasificacion: true },
+      { key: 'registrosMortalidad', endpoint: 'sanidad/mortalidad/' },
+      { key: 'historialMorbilidad', endpoint: 'sanidad/morbilidad/' },
+      { key: 'tratamientos', endpoint: 'sanidad/tratamientos/' },
+      { key: 'avisena_transacciones', endpoint: 'finanzas/' },
+    ];
 
-      const res = await fetch(url, {
-        method: item.metodo || 'POST',
-        headers,
-        body: typeof item.datos === 'string' ? item.datos : JSON.stringify(item.datos),
-      });
+    const idsMigrados = new Set();
 
-      if (res.ok || res.status === 201 || res.status === 204) {
-        sincronizados++;
-      } else if (res.status === 401) {
-        // Intentar renovar token y reintentar este elemento
-        const nuevoToken = await renovarToken();
-        if (nuevoToken) {
-          headers['Authorization'] = `Bearer ${nuevoToken}`;
-          const retryRes = await fetch(url, {
+    for (const mod of mapeoModulosLocales) {
+      const raw = localStorage.getItem(mod.key);
+      if (!raw) continue;
+      let lista = [];
+      try {
+        lista = JSON.parse(raw);
+      } catch (_) {
+        continue;
+      }
+      if (!Array.isArray(lista) || lista.length === 0) continue;
+
+      let huboCambios = false;
+      for (let i = 0; i < lista.length; i++) {
+        const reg = lista[i];
+        if (!reg || typeof reg !== 'object') continue;
+        const esIdTemporal =
+          (typeof reg.id === 'number' && reg.id > 100000000000) ||
+          (typeof reg.id === 'string' && (reg.id.startsWith('temp_') || (/^\d+$/.test(reg.id) && Number(reg.id) > 100000000000))) ||
+          (mod.esClasificacion && !reg.clasificacion_id && typeof reg.id === 'string' && reg.id.startsWith('REC-'));
+
+        if (!esIdTemporal) continue;
+
+        try {
+          const url = `${getApiBaseUrl()}/${mod.endpoint}`;
+          const headers = {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          };
+          const res = await fetch(url, {
+            method: 'POST',
+            headers,
+            body: JSON.stringify(reg),
+          });
+          if (res.ok || res.status === 201) {
+            const creado = await res.json().catch(() => null);
+            idsMigrados.add(String(reg.id));
+            if (creado && (creado.id || creado.clasificacion_id)) {
+              if (mod.esClasificacion) {
+                lista[i] = {
+                  ...reg,
+                  ...creado,
+                  id: creado.codigo || `REC-${String(creado.id || creado.clasificacion_id).padStart(3, '0')}`,
+                  clasificacion_id: creado.clasificacion_id || creado.id,
+                };
+              } else {
+                lista[i] = { ...reg, ...creado, id: creado.id };
+              }
+              huboCambios = true;
+              sincronizados++;
+            }
+          }
+        } catch (_) {
+          // Servidor offline, se intentará en la próxima conexión
+        }
+      }
+
+      if (huboCambios) {
+        localStorage.setItem(mod.key, JSON.stringify(lista));
+      }
+    }
+
+    // 2. Procesar cola de peticiones pendientes (avisena_sync_queue)
+    const rawCola = localStorage.getItem(SYNC_QUEUE_KEY);
+    let cola = [];
+    if (rawCola) {
+      try {
+        cola = JSON.parse(rawCola);
+      } catch (_) {
+        cola = [];
+      }
+    }
+
+    if (Array.isArray(cola) && cola.length > 0) {
+      for (const item of cola) {
+        const itemId = item?.datos?.id ? String(item.datos.id) : null;
+        if (itemId && idsMigrados.has(itemId)) {
+          continue;
+        }
+        try {
+          const url = `${getApiBaseUrl()}/${item.endpoint.replace(/^\/+/, '')}`;
+          const headers = {
+            'Content-Type': 'application/json',
+            ...getAuthHeader(),
+          };
+
+          const res = await fetch(url, {
             method: item.metodo || 'POST',
             headers,
             body: typeof item.datos === 'string' ? item.datos : JSON.stringify(item.datos),
           });
-          if (retryRes.ok || retryRes.status === 201) {
-            sincronizados++;
-            continue;
-          }
-        }
-        noSincronizados.push(item);
-      } else if (res.status >= 400 && res.status < 500) {
-        // Error de validación cliente (p. ej. dato duplicado); descartar para evitar loop infinito
-        console.warn(`[Sync Queue] Elemento descartado por error ${res.status}:`, item.endpoint);
-      } else {
-        // Error 5xx del servidor; conservar para reintento
-        noSincronizados.push(item);
-      }
-    } catch (err) {
-      // Servidor caído o error de red; conservar en cola
-      noSincronizados.push(item);
-    }
-  }
 
-  try {
+          if (res.ok || res.status === 201 || res.status === 204) {
+            sincronizados++;
+          } else if (res.status === 401) {
+            const nuevoToken = await renovarToken();
+            if (nuevoToken) {
+              headers['Authorization'] = `Bearer ${nuevoToken}`;
+              const retryRes = await fetch(url, {
+                method: item.metodo || 'POST',
+                headers,
+                body: typeof item.datos === 'string' ? item.datos : JSON.stringify(item.datos),
+              });
+              if (retryRes.ok || retryRes.status === 201) {
+                sincronizados++;
+                continue;
+              }
+            }
+            noSincronizados.push(item);
+          } else if (res.status >= 400 && res.status < 500) {
+            console.warn(`[Sync Queue] Elemento descartado por error ${res.status}:`, item.endpoint);
+          } else {
+            noSincronizados.push(item);
+          }
+        } catch (err) {
+          noSincronizados.push(item);
+        }
+      }
+    }
+
     localStorage.setItem(SYNC_QUEUE_KEY, JSON.stringify(noSincronizados));
     window.dispatchEvent(new CustomEvent('avisena:synced', {
       detail: { sincronizados, pendientesRestantes: noSincronizados.length }

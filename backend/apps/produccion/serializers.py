@@ -3,39 +3,7 @@ import json
 from rest_framework import serializers
 from .models import ProduccionHuevos, ClasificacionHuevos, AlimentacionAves
 from apps.galpones.models import Galpon
-
-def resolver_galpon(valor):
-    """
-    Resuelve una instancia de Galpon a partir de diversos formatos:
-    - Instancia de Galpon
-    - ID entero (e.g. 1)
-    - String numérico (e.g. "1", "01")
-    - String descriptivo (e.g. "Galpón 1", "Galpon 02", "Lote 01")
-    - Diccionario con 'id' o 'galpon_id'
-    """
-    if not valor:
-        return Galpon.objects.first()
-    if isinstance(valor, Galpon):
-        return valor
-    if isinstance(valor, dict):
-        valor = valor.get('id') or valor.get('galpon_id')
-    try:
-        val_int = int(str(valor).strip())
-        g = Galpon.objects.filter(galpon_id=val_int).first()
-        if g:
-            return g
-    except (ValueError, TypeError):
-        pass
-
-    str_val = str(valor).strip()
-    digits = re.findall(r'\d+', str_val)
-    if digits:
-        val_int = int(digits[0])
-        g = Galpon.objects.filter(galpon_id=val_int).first()
-        if g:
-            return g
-
-    return Galpon.objects.first()
+from apps.galpones.serializers import resolver_galpon, obtener_numero_galpon
 
 
 class ProduccionHuevosSerializer(serializers.ModelSerializer):
@@ -163,21 +131,20 @@ class ProduccionHuevosSerializer(serializers.ModelSerializer):
 
     def get_galpon(self, obj):
         if not obj.galpon:
-            return "Galpón 01"
-        gid = str(obj.galpon.galpon_id).zfill(2)
-        return f"Galpón {gid}"
+            return "Galpón 1"
+        return f"Galpón {obtener_numero_galpon(obj.galpon)}"
 
     def to_internal_value(self, data):
         data = data.copy() if hasattr(data, 'copy') else dict(data)
 
         # Mapeo de fecha
-        if 'fecha' in data and 'prod_fecha_recoleccion' not in data:
+        if 'fecha' in data:
             data['prod_fecha_recoleccion'] = data['fecha']
-        elif 'fechaRecoleccion' in data and 'prod_fecha_recoleccion' not in data:
+        elif 'fechaRecoleccion' in data:
             data['prod_fecha_recoleccion'] = data['fechaRecoleccion']
 
         # Mapeo de hora
-        if 'hora' in data and 'prod_hora_recoleccion' not in data:
+        if 'hora' in data:
             val_hora = str(data['hora']).strip()
             if len(val_hora) == 5:
                 val_hora += ":00"
@@ -208,7 +175,7 @@ class ProduccionHuevosSerializer(serializers.ModelSerializer):
             ('huevosRotos', 'prod_huevos_rotos'),
             ('descarte', 'prod_huevos_descarte')
         ]:
-            if f_front in data and f_db not in data:
+            if f_front in data:
                 try:
                     data[f_db] = int(data[f_front] or 0)
                 except (ValueError, TypeError):
@@ -217,8 +184,6 @@ class ProduccionHuevosSerializer(serializers.ModelSerializer):
         # Resolución de Galpón
         raw_galpon = data.get('galpon') or data.get('galpon_id') or data.get('galponOrigen')
         galpon_obj = resolver_galpon(raw_galpon)
-        if galpon_obj:
-            data['galpon'] = galpon_obj.galpon_id
 
         # Preservación de metadatos (Trabajador, Línea Genética) en prod_observaciones
         trab = str(data.get('trabajador') or '').strip()
@@ -237,7 +202,10 @@ class ProduccionHuevosSerializer(serializers.ModelSerializer):
         elif raw_notas:
             data['prod_observaciones'] = raw_notas[:300]
 
-        return super().to_internal_value(data)
+        ret = super().to_internal_value(data)
+        if galpon_obj:
+            ret['galpon'] = galpon_obj
+        return ret
 
 
 class ClasificacionHuevosSerializer(serializers.ModelSerializer):
@@ -333,12 +301,13 @@ class ClasificacionHuevosSerializer(serializers.ModelSerializer):
 
     def get_galpon(self, obj):
         if not obj.galpon:
-            return "Galpón 01"
-        return f"Galpón {str(obj.galpon.galpon_id).zfill(2)}"
+            return "1"
+        return str(obtener_numero_galpon(obj.galpon))
 
     def get_lote(self, obj):
         meta, _ = self._parse_metadata(obj.clas_observaciones)
-        return meta.get('Lote') or f"Lote {str(obj.galpon_id).zfill(2)}"
+        num = obtener_numero_galpon(obj.galpon) if obj.galpon else 1
+        return meta.get('Lote') or f"Lote {num}"
 
     def get_responsable(self, obj):
         meta, _ = self._parse_metadata(obj.clas_observaciones)
@@ -440,8 +409,24 @@ class ClasificacionHuevosSerializer(serializers.ModelSerializer):
         # Galpon
         raw_galpon = data.get('galpon') or data.get('galpon_id')
         galpon_obj = resolver_galpon(raw_galpon)
-        if galpon_obj:
-            data['galpon'] = galpon_obj.galpon_id
+
+        # Resolver produccion de forma segura (evitar fallo si es null, ID local o ya clasificada)
+        raw_prod = data.get('produccion') or data.get('produccion_id')
+        prod_obj = None
+        if raw_prod:
+            try:
+                pid = int(raw_prod)
+                if pid < 100000000000:
+                    cand = ProduccionHuevos.objects.filter(produccion_id=pid).first()
+                    if cand:
+                        ya_clas = ClasificacionHuevos.objects.filter(produccion_id=pid)
+                        if self.instance:
+                            ya_clas = ya_clas.exclude(clasificacion_id=self.instance.clasificacion_id)
+                        if not ya_clas.exists():
+                            prod_obj = cand
+            except (ValueError, TypeError):
+                pass
+        data['produccion'] = prod_obj.produccion_id if prod_obj else None
 
         # Metadatos para clas_observaciones
         lote = str(data.get('lote') or '').strip()
@@ -463,7 +448,10 @@ class ClasificacionHuevosSerializer(serializers.ModelSerializer):
         elif obs_raw:
             data['clas_observaciones'] = obs_raw[:300]
 
-        return super().to_internal_value(data)
+        ret = super().to_internal_value(data)
+        if galpon_obj:
+            ret['galpon'] = galpon_obj
+        return ret
 
 
 class AlimentacionAvesSerializer(serializers.ModelSerializer):
@@ -473,6 +461,7 @@ class AlimentacionAvesSerializer(serializers.ModelSerializer):
     id = serializers.IntegerField(source='alimentacion_id', read_only=True)
     fecha = serializers.DateField(source='alim_fecha', required=False)
     kg = serializers.DecimalField(source='alim_cant_alimento', max_digits=10, decimal_places=2, required=False)
+    cantidad = serializers.DecimalField(source='alim_cant_alimento', max_digits=10, decimal_places=2, required=False, read_only=True)
     tipo = serializers.CharField(source='alim_tipo_alimento', required=False)
     galpon = serializers.SerializerMethodField(read_only=True)
     galpon_id = serializers.IntegerField(source='galpon.galpon_id', read_only=True)
@@ -486,6 +475,7 @@ class AlimentacionAvesSerializer(serializers.ModelSerializer):
             'fecha',
             'alim_fecha',
             'kg',
+            'cantidad',
             'alim_cant_alimento',
             'tipo',
             'alim_tipo_alimento',
@@ -498,23 +488,26 @@ class AlimentacionAvesSerializer(serializers.ModelSerializer):
 
     def get_galpon(self, obj):
         if not obj.galpon:
-            return "Galpón 01"
-        return f"Galpón {str(obj.galpon.galpon_id).zfill(2)}"
+            return "Galpón 1"
+        return f"Galpón {obtener_numero_galpon(obj.galpon)}"
 
     def to_internal_value(self, data):
         data = data.copy() if hasattr(data, 'copy') else dict(data)
-        if 'fecha' in data and 'alim_fecha' not in data:
+        if 'fecha' in data:
             data['alim_fecha'] = data['fecha']
-        if 'kg' in data and 'alim_cant_alimento' not in data:
+        if 'kg' in data:
             data['alim_cant_alimento'] = data['kg']
-        if 'tipo' in data and 'alim_tipo_alimento' not in data:
+        elif 'cantidad' in data:
+            data['alim_cant_alimento'] = data['cantidad']
+        if 'tipo' in data:
             data['alim_tipo_alimento'] = data['tipo']
         if not data.get('alim_tipo_alimento'):
             data['alim_tipo_alimento'] = "Alimento Postura Fase 1"
 
         raw_galpon = data.get('galpon') or data.get('galpon_id')
         galpon_obj = resolver_galpon(raw_galpon)
-        if galpon_obj:
-            data['galpon'] = galpon_obj.galpon_id
 
-        return super().to_internal_value(data)
+        ret = super().to_internal_value(data)
+        if galpon_obj:
+            ret['galpon'] = galpon_obj
+        return ret

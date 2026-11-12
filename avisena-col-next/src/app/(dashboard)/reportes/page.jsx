@@ -294,10 +294,169 @@ export default function ReportesView() {
     }
   }
 
-  const generarReporte = () => {
+  const normalizarListaReporte = (tipo, listaCruda) => {
+    if (!Array.isArray(listaCruda)) return [];
+
+    if (tipo === "Mortalidad de aves") {
+      return listaCruda.map((item, idx) => ({
+        ...item,
+        id: item.id || `mort-${idx}`,
+        cantidad: Number(item.cantidad || item.numeroAves || 0),
+        fecha: extraerFechaStr(item.fecha),
+      }));
+    }
+
+    if (tipo === "Producción de huevos") {
+      return listaCruda.map((item, idx) => {
+        const buenos = Number(item.huevosBuenos ?? item.buenos ?? 0);
+        const rotos = Number(item.huevosRotos ?? item.rotos ?? 0);
+        const descarte = Number(item.descarte ?? 0);
+        const totalCalculado = buenos + rotos + descarte;
+        const totalHuevos = Number(item.huevos ?? item.totalHuevos ?? (totalCalculado > 0 ? totalCalculado : item.cantidad ?? 0));
+        return {
+          ...item,
+          id: item.id || `prod-${idx}`,
+          fecha: extraerFechaStr(item.fecha),
+          cantidad: totalHuevos,
+          huevosBuenos: buenos,
+          huevosRotos: rotos,
+          descarte: descarte,
+          totalHuevos: totalHuevos,
+        };
+      });
+    }
+
+    if (tipo === "Clasificación de huevos") {
+      return listaCruda.map((item, idx) => {
+        let unidades = Number(item.unidades ?? 0);
+        let panales = Number(item.panales ?? 0);
+        let totalSobrantes = Number(item.totalSobrantes ?? 0);
+        let valorDinero = Number(item.valorDinero ?? 0);
+
+        if (item.detalles && typeof item.detalles === "object") {
+          let detUnidades = 0;
+          let detPanales = 0;
+          let detSobrantes = 0;
+          let detDinero = 0;
+
+          Object.entries(item.detalles).forEach(([, val]) => {
+            const hoy = Number(val?.hoy || 0);
+            const anterior = Number(val?.anterior || 0);
+            const acumulado = hoy + anterior;
+            const panalesCat = Math.floor(acumulado / 30);
+            const sobranteCat = acumulado % 30;
+
+            detUnidades += hoy;
+            detPanales += panalesCat;
+            detSobrantes += sobranteCat;
+
+            let precioUnitario = 0;
+            if (val?.precio) {
+              precioUnitario = typeof val.precio === "number"
+                ? val.precio
+                : Number(String(val.precio).replace(/[^\d]/g, "")) || 0;
+            }
+            detDinero += panalesCat * precioUnitario;
+          });
+
+          if (detUnidades > 0) unidades = detUnidades;
+          if (detPanales > 0) panales = detPanales;
+          if (detSobrantes >= 0) totalSobrantes = detSobrantes;
+          if (detDinero > 0) valorDinero = detDinero;
+        }
+
+        if (!unidades || unidades <= 0) {
+          if (item.cantidad && Number(item.cantidad) > 0) {
+            unidades = Number(item.cantidad);
+          } else if (panales > 30) {
+            unidades = panales;
+            panales = Math.floor(unidades / 30);
+          }
+        }
+
+        if (unidades > 0 && panales >= unidades) {
+          panales = Math.floor(unidades / 30);
+        } else if (!panales || panales <= 0) {
+          panales = Math.floor(unidades / 30);
+        } else {
+          panales = Math.floor(panales);
+        }
+
+        if (totalSobrantes === 0 && unidades > 0) {
+          if (item.sobrantesSiguiente && typeof item.sobrantesSiguiente === "object") {
+            totalSobrantes = Object.values(item.sobrantesSiguiente).reduce(
+              (acc, val) => acc + Number(val || 0),
+              0
+            );
+          } else {
+            totalSobrantes = unidades % 30;
+          }
+        }
+        totalSobrantes = Math.floor(totalSobrantes);
+
+        if (!valorDinero || valorDinero <= 0) {
+          if (typeof item.total === "number") {
+            valorDinero = item.total;
+          } else if (typeof item.total === "string") {
+            const limpio = item.total.replace(/[$\s]/g, "");
+            if (limpio.includes(".") && limpio.includes(",")) {
+              valorDinero = Number(limpio.replace(/\./g, "").replace(",", ".")) || 0;
+            } else if (limpio.includes(".") && !limpio.includes(",")) {
+              valorDinero = Number(limpio.replace(/\./g, "")) || 0;
+            } else if (limpio.includes(",")) {
+              valorDinero = Number(limpio.replace(",", ".")) || 0;
+            } else {
+              valorDinero = Number(limpio.replace(/[^\d.-]/g, "")) || 0;
+            }
+          }
+        }
+        valorDinero = Math.round(valorDinero);
+
+        return {
+          ...item,
+          id: item.codigo || item.id || `clas-${idx}`,
+          fecha: extraerFechaStr(item.fecha),
+          cantidad: unidades,
+          unidades,
+          panales,
+          totalSobrantes,
+          valorDinero,
+        };
+      });
+    }
+
+    if (tipo === "Morbilidad de aves") {
+      return listaCruda.map((item, idx) => ({
+        ...item,
+        id: item.id || `morb-${idx}`,
+        fecha: extraerFechaStr(item.fecha),
+        cantidad: Number(item.cantidad || 1),
+      }));
+    }
+
+    return [];
+  };
+
+  const generarReporte = async () => {
     if (!filtros.tipoReporte) return;
 
-    const reportes = obtenerDatosReporte(filtros.tipoReporte);
+    let reportes = [];
+    try {
+      const params = new URLSearchParams({
+        tipoReporte: filtros.tipoReporte,
+        galpon: filtros.galpon || "",
+        fechaInicio: filtros.fechaInicio || "",
+        fechaFin: filtros.fechaFin || "",
+      });
+      const res = await api.get(`/reportes/filtrar/?${params.toString()}`).catch(() => null);
+      if (res && Array.isArray(res.datos)) {
+        reportes = normalizarListaReporte(filtros.tipoReporte, res.datos);
+      } else {
+        reportes = obtenerDatosReporte(filtros.tipoReporte);
+      }
+    } catch {
+      reportes = obtenerDatosReporte(filtros.tipoReporte);
+    }
 
     const filtrados = reportes.filter((item) => {
       const fechaItem = extraerFechaStr(item.fecha);

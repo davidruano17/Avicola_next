@@ -10,6 +10,7 @@ from apps.produccion.serializers import ProduccionHuevosSerializer, Clasificacio
 from apps.sanidad.models import MortalidadAves, MorbilidadAves
 from apps.sanidad.serializers import MortalidadAvesSerializer, MorbilidadAvesSerializer
 from apps.finanzas.models import FinanzasUdAvicola
+from apps.usuarios.models import Usuario
 
 class FiltrarReportesView(APIView):
     """
@@ -66,7 +67,7 @@ class FiltrarReportesView(APIView):
         if 'producci' in tipo_lower:
             qs = ProduccionHuevos.objects.select_related('galpon', 'usuario').all().order_by('-prod_fecha_recoleccion')
             if galpon_id:
-                qs = qs.filter(galpon_id=galpon_id)
+                qs = qs.filter(Q(galpon__galp_numero_galpon=galpon_id) | Q(galpon_id=galpon_id))
             if fecha_inicio and fecha_fin:
                 qs = qs.filter(prod_fecha_recoleccion__range=[fecha_inicio, fecha_fin])
             elif fecha_inicio:
@@ -105,7 +106,7 @@ class FiltrarReportesView(APIView):
         elif 'clasifica' in tipo_lower:
             qs = ClasificacionHuevos.objects.select_related('galpon', 'usuario').all().order_by('-clas_fecha_clasificacion')
             if galpon_id:
-                qs = qs.filter(galpon_id=galpon_id)
+                qs = qs.filter(Q(galpon__galp_numero_galpon=galpon_id) | Q(galpon_id=galpon_id))
             if fecha_inicio and fecha_fin:
                 qs = qs.filter(clas_fecha_clasificacion__range=[fecha_inicio, fecha_fin])
             elif fecha_inicio:
@@ -142,7 +143,7 @@ class FiltrarReportesView(APIView):
         elif 'mortalidad' in tipo_lower:
             qs = MortalidadAves.objects.select_related('galpon', 'usuario').all().order_by('-mort_fecha')
             if galpon_id:
-                qs = qs.filter(galpon_id=galpon_id)
+                qs = qs.filter(Q(galpon__galp_numero_galpon=galpon_id) | Q(galpon_id=galpon_id))
             if fecha_inicio and fecha_fin:
                 qs = qs.filter(mort_fecha__range=[fecha_inicio, fecha_fin])
             elif fecha_inicio:
@@ -181,7 +182,7 @@ class FiltrarReportesView(APIView):
         elif 'morbilidad' in tipo_lower:
             qs = MorbilidadAves.objects.select_related('galpon', 'usuario').all().order_by('-morb_fecha_reporte')
             if galpon_id:
-                qs = qs.filter(galpon_id=galpon_id)
+                qs = qs.filter(Q(galpon__galp_numero_galpon=galpon_id) | Q(galpon_id=galpon_id))
             if fecha_inicio and fecha_fin:
                 qs = qs.filter(morb_fecha_reporte__range=[fecha_inicio, fecha_fin])
             elif fecha_inicio:
@@ -309,8 +310,50 @@ class DashboardMetricasView(APIView):
         # Tasa de postura
         tasa_postura = round((total_huevos_buenos / total_aves) * 100, 2) if total_aves > 0 else 0.0
 
+        # Usuarios activos y conteo de reportes
+        usuarios_activos = Usuario.objects.filter(usu_estado='Activo').count()
+        total_reportes = (
+            produccion_qs.count() +
+            clasificacion_qs.count() +
+            alimentacion_qs.count() +
+            mortalidad_qs.count() +
+            morbilidad_qs.count()
+        )
+        salud_sistema = round(max(0.0, 100.0 - tasa_mortalidad), 1)
+
+        # Reportes recientes combinados desde las tablas reales
+        recientes = []
+        for p in produccion_qs.select_related('usuario', 'galpon').order_by('-prod_fecha_recoleccion', '-produccion_id')[:3]:
+            recientes.append({
+                'id': f"#PROD-{str(p.produccion_id).zfill(3)}",
+                'tipo': 'Producción',
+                'usuario': p.usuario.usu_nombre_completo if p.usuario else 'Operario Avícola',
+                'fecha': str(p.prod_fecha_recoleccion),
+                'estado': 'Completado' if hasattr(p, 'clasificacion') else 'Pendiente',
+            })
+        for a in alimentacion_qs.select_related('usuario', 'galpon').order_by('-alim_fecha', '-alimentacion_id')[:2]:
+            recientes.append({
+                'id': f"#ALIM-{str(a.alimentacion_id).zfill(3)}",
+                'tipo': 'Alimentación',
+                'usuario': a.usuario.usu_nombre_completo if a.usuario else 'Operario Avícola',
+                'fecha': str(a.alim_fecha),
+                'estado': 'Completado',
+            })
+        for m in mortalidad_qs.select_related('usuario', 'galpon').order_by('-mort_fecha', '-mortalidad_id')[:2]:
+            recientes.append({
+                'id': f"#MORT-{str(m.mortalidad_id).zfill(3)}",
+                'tipo': 'Mortalidad',
+                'usuario': m.usuario.usu_nombre_completo if m.usuario else 'Encargado Sanidad',
+                'fecha': str(m.mort_fecha),
+                'estado': 'Completado',
+            })
+        recientes.sort(key=lambda x: x['fecha'], reverse=True)
+
         return Response({
             'resumen_general': {
+                'usuarios_activos': usuarios_activos,
+                'total_reportes': total_reportes,
+                'salud_sistema_porcentaje': salud_sistema,
                 'total_aves_activas': total_aves,
                 'total_galpones': total_galpones,
                 'total_huevos_recolectados': total_huevos_recolectados,
@@ -324,6 +367,7 @@ class DashboardMetricasView(APIView):
                 'tasa_mortalidad_porcentaje': tasa_mortalidad,
                 'total_aves_enfermas': total_aves_enfermas,
             },
+            'reportes_recientes': recientes[:6],
             'causa_principal_mortalidad': causa_principal_mortalidad,
             'desglose_mortalidad_por_causa': list(causas_mortalidad),
             'desglose_clasificacion_huevos': desglose_clasificacion,

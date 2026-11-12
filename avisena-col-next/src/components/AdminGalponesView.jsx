@@ -19,6 +19,7 @@ export default function AdminGalponesView() {
   useEffect(() => {
     async function cargarGalpones() {
       try {
+        await api.sincronizarPendientes().catch(() => {});
         const dataApi = await api.get('/galpones/');
         const lista = Array.isArray(dataApi) ? dataApi : (dataApi?.results || []);
         if (lista.length > 0) {
