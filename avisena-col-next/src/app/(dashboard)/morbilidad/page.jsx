@@ -7,7 +7,9 @@ import api from '@/services/api';
 
 export default function MorbilidadView() {
   const [showModal, setShowModal] = useState(false);
+  const [editRegistro, setEditRegistro] = useState(null);
   const [registros, setRegistros] = useState([]);
+  const [registroPendienteEliminar, setRegistroPendienteEliminar] = useState(null);
   const [buscar, setBuscar] = useState('');
   const [toast, setToast] = useState({ show: false, title: '', message: '' });
   const router = useRouter();
@@ -19,7 +21,7 @@ export default function MorbilidadView() {
   useEffect(() => {
     async function cargarMorbilidad() {
       try {
-        await api.sincronizarPendientes().catch(() => {});
+        await api.sincronizarPendientes().catch(() => { });
         const res = await api.get('/sanidad/morbilidad/').catch(() => null);
         const lista = Array.isArray(res) ? res : (res?.results || []);
         if (lista.length > 0) {
@@ -46,7 +48,8 @@ export default function MorbilidadView() {
     const loteFull = `Galpón ${formDataSubmit.galpon}`;
 
     const nuevoRegistro = {
-      id: Date.now(),
+      ...editRegistro,
+      id: editRegistro?.id ?? Date.now(),
       responsable: formDataSubmit.responsable,
       fecha: formDataSubmit.fecha,
       galpon: formDataSubmit.galpon,
@@ -58,35 +61,65 @@ export default function MorbilidadView() {
       observaciones: formDataSubmit.observaciones
     };
 
+
     let registroFinal = nuevoRegistro;
     try {
-      const res = await api.post('/sanidad/morbilidad/', nuevoRegistro);
-      if (res && res.id) registroFinal = res;
+      if (editRegistro) {
+        // Si es edición y tiene un ID real de base de datos, intenta actualizar en la API
+        if (typeof editRegistro.id === 'number' && editRegistro.id < 100000000000) {
+          const res = await api.put(`/sanidad/morbilidad/${editRegistro.id}/`, nuevoRegistro);
+          if (res && res.id) registroFinal = res;
+        }
+      } else {
+        const res = await api.post('/sanidad/morbilidad/', nuevoRegistro);
+        if (res && res.id) registroFinal = res;
+      }
     } catch (err) {
       console.warn("Fallo al guardar morbilidad en API, usando respaldo local:", err);
     }
 
-    const nuevosRegistros = [registroFinal, ...registros];
+    const nuevosRegistros = editRegistro
+      ? registros.map((registro) => registro.id === editRegistro.id ? nuevoRegistro : registro)
+      : [nuevoRegistro, ...registros];
+
     localStorage.setItem('historialMorbilidad', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
 
-    showNotification('¡Registro Exitoso!', 'La incidencia de morbilidad ha sido documentada.');
+    showNotification(
+      editRegistro ? 'Registro actualizado' : '¡Registro Exitoso!',
+      editRegistro ? 'La incidencia de morbilidad ha sido actualizada.' : 'La incidencia de morbilidad ha sido documentada.'
+    );
+    setEditRegistro(null);
     setShowModal(false);
   };
 
-  const eliminarRegistro = async (registroId) => {
+  const eliminarRegistro = (registroId) => {
+    setRegistroPendienteEliminar(registroId);
+  };
+  const confirmarEliminacion = async () => {
+    if (registroPendienteEliminar === null) return;
+
     try {
-      if (registroId && typeof registroId === 'number' && registroId < 100000000000) {
-        await api.delete(`/sanidad/morbilidad/${registroId}/`);
+      if (typeof registroPendienteEliminar === 'number' && registroPendienteEliminar < 100000000000) {
+        await api.delete(`/sanidad/morbilidad/${registroPendienteEliminar}/`);
       }
     } catch (err) {
       console.warn("Fallo al eliminar morbilidad en API, aplicando respaldo local:", err);
     }
 
-    const nuevosRegistros = registros.filter((registro) => registro.id !== registroId);
+    const nuevosRegistros = registros.filter((registro) => registro.id !== registroPendienteEliminar);
+
     localStorage.setItem('historialMorbilidad', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
+    setRegistroPendienteEliminar(null);
     showNotification('Registro eliminado', 'El registro de morbilidad fue borrado correctamente.');
+  };
+
+  const editarRegistro = (registroId) => {
+    const registro = registros.find((item) => item.id === registroId);
+    if (!registro) return;
+    setEditRegistro(registro);
+    setShowModal(true);
   };
 
   const getBadgeColor = (afectacion) => {
@@ -154,7 +187,7 @@ export default function MorbilidadView() {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
   };
 
-     return (
+  return (
     <section className="flex h-full grow flex-col">
       <main className="flex flex-1 flex-col py-8 px-6 md:px-8 lg:px-12 w-full">
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 justify-between">
@@ -164,7 +197,10 @@ export default function MorbilidadView() {
           </section>
           <section className="flex justify-end items-center">
             <button
-              onClick={() => setShowModal(true)}
+              onClick={() => {
+                setEditRegistro(null);
+                setShowModal(true);
+              }}
               className="flex items-center justify-center gap-2 rounded-lg h-14 px-8 min-w-[220px] bg-primary hover:bg-[#3dbd14] text-black text-sm font-black shadow-lg shadow-primary/20 active:scale-[0.98] transition-all border-none cursor-pointer"
             >
               <span className="material-icons">add_circle</span>
@@ -175,7 +211,14 @@ export default function MorbilidadView() {
 
         {/* Formulario Modal */}
         {showModal && (
-          <FormMorbilidad onSubmit={guardarRegistro} onClose={() => setShowModal(false)} />
+          <FormMorbilidad
+            onSubmit={guardarRegistro}
+            onClose={() => {
+              setShowModal(false);
+              setEditRegistro(null);
+            }}
+            initialData={editRegistro}
+          />
         )}
 
         <section className="w-full space-y-8">
@@ -221,6 +264,7 @@ export default function MorbilidadView() {
                     <th className="px-6 py-4">Acción</th>
                     <th className="px-6 py-4">Responsable</th>
                     <th className="px-6 py-4 text-center">Tratamiento</th>
+                    <th className="px-6 py-4 text-center">Acciones</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-primary/10 text-sm">
@@ -270,13 +314,24 @@ export default function MorbilidadView() {
                           </button>
                         </td>
                         <td className="px-6 py-4 text-center">
-                          <button
-                            onClick={() => eliminarRegistro(registro.id)}
-                            className="text-red-500 hover:text-red-700 transition-colors"
-                            title="Eliminar"
-                          >
-                            <span className="material-icons w-4 h-4 inline">delete</span>
-                          </button>
+                          <div className="flex items-center justify-center gap-2">
+                            <button
+                              onClick={() => editarRegistro(registro.id)}
+                              className="p-2 rounded-lg bg-blue-100 text-blue-500 hover:bg-blue-200 transition-colors"
+                              title="Editar"
+                              type="button"
+                            >
+                              <span className="material-symbols-outlined text-lg">edit</span>
+                            </button>
+                            <button
+                              onClick={() => eliminarRegistro(registro.id)}
+                              className="p-2 rounded-lg bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
+                              title="Eliminar"
+                              type="button"
+                            >
+                              <span className="material-symbols-outlined text-lg">delete</span>
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     ))
@@ -317,6 +372,41 @@ export default function MorbilidadView() {
             </section>
           </section>
         </section>
+
+        {registroPendienteEliminar !== null && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="presentation">
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="confirmar-eliminar-morbilidad-titulo"
+              className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-background-dark"
+            >
+              <span className="material-symbols-outlined mb-3 text-5xl text-red-500">warning</span>
+              <h2 id="confirmar-eliminar-morbilidad-titulo" className="mb-2 text-xl font-bold text-slate-900 dark:text-white">
+                ¿Estás seguro de eliminar este registro?
+              </h2>
+              <p className="mb-6 text-sm text-slate-500 dark:text-slate-300">
+                Esta acción no se puede deshacer.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setRegistroPendienteEliminar(null)}
+                  className="rounded-lg border border-slate-300 px-5 py-2 font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmarEliminacion}
+                  className="rounded-lg bg-red-500 px-5 py-2 font-semibold text-white transition-colors hover:bg-red-600"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
 
         {/* Toast Notification */}
         {toast.show && (

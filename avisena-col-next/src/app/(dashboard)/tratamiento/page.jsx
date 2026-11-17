@@ -10,6 +10,7 @@ export default function TratamientoView() {
   const [mostrarFormulario, setMostrarFormulario] = useState(false);
   const [notificacion, setNotificacion] = useState(null);
   const [defaultFormData, setDefaultFormData] = useState(null);
+  const [tratamientoPendienteEliminar, setTratamientoPendienteEliminar] = useState(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -74,18 +75,26 @@ export default function TratamientoView() {
     showNotification('✓ Tratamiento registrado correctamente');
   };
 
-  const eliminarTratamiento = async (id) => {
+  const eliminarTratamiento = (id) => {
+    setTratamientoPendienteEliminar(id);
+  };
+
+  const confirmarEliminacion = async () => {
+    if (tratamientoPendienteEliminar === null) return;
+
     try {
-      if (id && typeof id === 'number' && id < 100000000000) {
-        await api.delete(`/sanidad/tratamientos/${id}/`);
+      if (typeof tratamientoPendienteEliminar === 'number' && tratamientoPendienteEliminar < 100000000000) {
+        await api.delete(`/sanidad/tratamientos/${tratamientoPendienteEliminar}/`);
       }
     } catch (err) {
       console.warn("Fallo al eliminar tratamiento en API, aplicando respaldo local:", err);
     }
 
-    const tratamientosActualizados = tratamientos.filter(t => t.id !== id);
+    const tratamientosActualizados = tratamientos.filter(t => t.id !== tratamientoPendienteEliminar);
+
     setTratamientos(tratamientosActualizados);
     localStorage.setItem('tratamientos', JSON.stringify(tratamientosActualizados));
+    setTratamientoPendienteEliminar(null);
     showNotification('✓ Tratamiento eliminado');
   };
 
@@ -106,6 +115,15 @@ export default function TratamientoView() {
     showNotification('✓ Tratamiento marcado como completado');
   };
 
+  const cancelarTratamiento = (id) => {
+    const tratamientosActualizados = tratamientos.map(t =>
+      t.id === id ? { ...t, estado: 'Cancelado' } : t
+    );
+    setTratamientos(tratamientosActualizados);
+    localStorage.setItem('tratamientos', JSON.stringify(tratamientosActualizados));
+    showNotification('✓ Tratamiento cancelado');
+  };
+
   const formatDate = (dateString) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
@@ -114,7 +132,8 @@ export default function TratamientoView() {
   const getEstadoBadge = (estado) => {
     const clases = {
       'Activo': 'bg-emerald-50 dark:bg-emerald-950/20 text-emerald-700 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-900',
-      'Completado': 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700'
+      'Completado': 'bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700',
+      'Cancelado': 'bg-yellow-50 dark:bg-yellow-950/20 text-yellow-700 dark:text-yellow-400 border border-yellow-200 dark:border-yellow-900'
     };
     return clases[estado] || clases['Activo'];
   };
@@ -223,23 +242,41 @@ export default function TratamientoView() {
                           {tratamiento.estado}
                         </span>
                       </td>
-                      <td className="p-4 text-center space-x-2">
-                        {tratamiento.estado === 'Activo' && (
+                      <td className="p-4">
+                        <div className="flex min-w-[136px] flex-nowrap items-center justify-center gap-2 whitespace-nowrap">
+                          {tratamiento.estado === 'Activo' && (
+                            <button
+                              onClick={() => completarTratamiento(tratamiento.id)}
+                              className="p-2 rounded-lg bg-green-100 text-green-500 hover:bg-green-200"
+                              title="Completar"
+                              type="button"
+                            >
+                              <span className="material-symbols-outlined text-lg">
+                                check_circle
+                              </span>
+                            </button>
+                          )}
+                          {tratamiento.estado === 'Activo' && (
+                            <button
+                              onClick={() => cancelarTratamiento(tratamiento.id)}
+                              className="p-2 rounded-lg bg-yellow-100 text-yellow-500 hover:bg-yellow-200"
+                              title="Cancelar tratamiento"
+                              type="button"
+                            >
+                              <span className="material-symbols-outlined text-lg">
+                                cancel
+                              </span>
+                            </button>
+                          )}
                           <button
-                            onClick={() => completarTratamiento(tratamiento.id)}
-                            className="text-emerald-500 hover:text-emerald-700 transition-colors"
-                            title="Completar"
+                            onClick={() => eliminarTratamiento(tratamiento.id)}
+                            className="p-2 rounded-lg bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
+                            title="Eliminar"
+                            type="button"
                           >
-                            <span className="material-icons w-4 h-4 inline">check_circle</span>
+                            <span className="material-symbols-outlined text-lg">delete</span>
                           </button>
-                        )}
-                        <button
-                          onClick={() => eliminarTratamiento(tratamiento.id)}
-                          className="text-red-500 hover:text-red-700 transition-colors"
-                          title="Eliminar"
-                        >
-                          <span className="material-icons w-4 h-4 inline">delete</span>
-                        </button>
+                        </div>
                       </td>
                     </tr>
                   ))
@@ -249,8 +286,43 @@ export default function TratamientoView() {
           </div>
         </section>
 
+        {tratamientoPendienteEliminar !== null && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 p-4" role="presentation">
+            <section
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="confirmar-eliminar-tratamiento-titulo"
+              className="w-full max-w-md rounded-2xl bg-white p-6 text-center shadow-2xl dark:bg-background-dark"
+            >
+              <span className="material-symbols-outlined mb-3 text-5xl text-red-500">warning</span>
+              <h2 id="confirmar-eliminar-tratamiento-titulo" className="mb-2 text-xl font-bold text-slate-900 dark:text-white">
+                ¿Estás seguro de eliminar este registro?
+              </h2>
+              <p className="mb-6 text-sm text-slate-500 dark:text-slate-300">
+                Esta acción no se puede deshacer.
+              </p>
+              <div className="flex justify-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => setTratamientoPendienteEliminar(null)}
+                  className="rounded-lg border border-slate-300 px-5 py-2 font-semibold text-slate-700 transition-colors hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmarEliminacion}
+                  className="rounded-lg bg-red-500 px-5 py-2 font-semibold text-white transition-colors hover:bg-red-600"
+                >
+                  Eliminar
+                </button>
+              </div>
+            </section>
+          </div>
+        )}
+
         {tratamientos.length > 0 && (
-          <section className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <section className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
             <article className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700">
               <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">Total de Tratamientos</p>
               <h3 className="text-3xl font-black text-primary">{tratamientos.length}</h3>
@@ -263,6 +335,11 @@ export default function TratamientoView() {
               <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">Completados</p>
               <h3 className="text-3xl font-black text-slate-500">{tratamientos.filter(t => t.estado === 'Completado').length}</h3>
             </article>
+            <article className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700">
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">Cancelados</p>
+              <h3 className="text-3xl font-black text-slate-500">{tratamientos.filter(t => t.estado === 'Cancelado').length}</h3>
+            </article>
+
           </section>
         )}
       </main>
