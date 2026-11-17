@@ -280,7 +280,7 @@ export default function TratamientoView() {
         )}
 
         {tratamientos.length > 0 && (
-          <section className="mt-8 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <section className="mt-8 grid grid-cols-1 md:grid-cols-4 gap-6">
             <article className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700">
               <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">Total de Tratamientos</p>
               <h3 className="text-3xl font-black text-primary">{tratamientos.length}</h3>
@@ -293,6 +293,11 @@ export default function TratamientoView() {
               <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">Completados</p>
               <h3 className="text-3xl font-black text-slate-500">{tratamientos.filter(t => t.estado === 'Completado').length}</h3>
             </article>
+            <article className="bg-white dark:bg-slate-900 p-6 rounded-xl border border-slate-200 dark:border-slate-700">
+              <p className="text-slate-500 dark:text-slate-400 text-sm mb-2">Cancelados</p>
+              <h3 className="text-3xl font-black text-slate-500">{tratamientos.filter(t => t.estado === 'Cancelado').length}</h3>
+            </article>
+
           </section>
         )}
       </main>
