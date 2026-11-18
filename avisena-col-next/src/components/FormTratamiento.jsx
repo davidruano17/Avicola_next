@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import api from '@/services/api';
 
 export default function FormTratamiento({ onSubmit, onClose, defaultData }) {
+  const [galponesDisponibles, setGalponesDisponibles] = useState([]);
   const [formData, setFormData] = useState({
     fechaInicio: defaultData?.fechaInicio || '',
     galpon: defaultData?.galpon || '1',
@@ -14,6 +16,25 @@ export default function FormTratamiento({ onSubmit, onClose, defaultData }) {
     observaciones: defaultData?.observaciones || '',
     responsable: defaultData?.responsable || ''
   });
+
+  useEffect(() => {
+    async function cargarGalpones() {
+      try {
+        const res = await api.get('/galpones/').catch(() => null);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        if (lista.length > 0) {
+          localStorage.setItem('historialgalpones', JSON.stringify(lista));
+          setGalponesDisponibles(lista);
+          return;
+        }
+      } catch {}
+      try {
+        const local = JSON.parse(localStorage.getItem('historialgalpones') || '[]');
+        if (Array.isArray(local) && local.length > 0) setGalponesDisponibles(local);
+      } catch {}
+    }
+    cargarGalpones();
+  }, []);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -58,8 +79,24 @@ export default function FormTratamiento({ onSubmit, onClose, defaultData }) {
                   onChange={(e) => setFormData({ ...formData, galpon: e.target.value })}
                   className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg px-3 py-2 text-sm focus:ring-primary focus:border-primary dark:text-white transition-all h-10 border"
                 >
-                  <option value="1">Galpón 1</option>
-                  <option value="2">Galpón 2</option>
+                  {galponesDisponibles.length > 0 ? (
+                    Array.from(
+                      new Map(
+                        galponesDisponibles.map(g => {
+                          const num = String(g.galp_numero_galpon ?? g.numeroGalpon ?? g.galpon ?? g.lote ?? '1').replace(/\D/g, '') || '1';
+                          const label = g.galpon && /^galp/i.test(String(g.galpon)) ? g.galpon : `Galpón ${num}`;
+                          return [num, { val: num, label }];
+                        })
+                      ).values()
+                    ).map(opt => (
+                      <option key={opt.val} value={opt.val}>{opt.label}</option>
+                    ))
+                  ) : (
+                    <>
+                      <option value="1">Galpón 1</option>
+                      <option value="2">Galpón 2</option>
+                    </>
+                  )}
                 </select>
               </section>
               <section>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import FormTratamiento from '@/components/FormTratamiento';
-
+import api from '@/services/api';
 
 export default function TratamientoView() {
   const [tratamientos, setTratamientos] = useState([]);
@@ -14,17 +14,34 @@ export default function TratamientoView() {
   const router = useRouter();
 
   useEffect(() => {
-    const tratamientosGuardados = localStorage.getItem('tratamientos');
-    if (tratamientosGuardados) {
-      setTratamientos(JSON.parse(tratamientosGuardados));
+    async function cargarTratamientos() {
+      try {
+        await api.sincronizarPendientes().catch(() => {});
+        const res = await api.get('/sanidad/tratamientos/').catch(() => null);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        if (lista.length > 0) {
+          setTratamientos(lista);
+          localStorage.setItem('tratamientos', JSON.stringify(lista));
+        } else {
+          const tratamientosGuardados = localStorage.getItem('tratamientos');
+          if (tratamientosGuardados) {
+            setTratamientos(JSON.parse(tratamientosGuardados));
+          }
+        }
+      } catch (err) {
+        const tratamientosGuardados = localStorage.getItem('tratamientos');
+        if (tratamientosGuardados) {
+          setTratamientos(JSON.parse(tratamientosGuardados));
+        }
+      }
     }
+    cargarTratamientos();
 
     // Revisar si hay datos de autofill en localStorage
     const autofillData = localStorage.getItem('tratamientoAutofill');
     if (autofillData) {
       setDefaultFormData(JSON.parse(autofillData));
       setMostrarFormulario(true);
-      // Limpiar después de usarlo
       localStorage.removeItem('tratamientoAutofill');
     }
   }, []);
@@ -34,7 +51,7 @@ export default function TratamientoView() {
     setTimeout(() => setNotificacion(null), 4000);
   };
 
-  const guardarTratamiento = (formData) => {
+  const guardarTratamiento = async (formData) => {
     const nuevoTratamiento = {
       id: Date.now(),
       ...formData,
@@ -42,7 +59,15 @@ export default function TratamientoView() {
       fechaRegistro: new Date().toISOString()
     };
 
-    const tratamientosActualizados = [nuevoTratamiento, ...tratamientos];
+    let tratamientoFinal = nuevoTratamiento;
+    try {
+      const res = await api.post('/sanidad/tratamientos/', nuevoTratamiento);
+      if (res && res.id) tratamientoFinal = res;
+    } catch (err) {
+      console.warn("Fallo al guardar tratamiento en API, usando respaldo local:", err);
+    }
+
+    const tratamientosActualizados = [tratamientoFinal, ...tratamientos];
     setTratamientos(tratamientosActualizados);
     localStorage.setItem('tratamientos', JSON.stringify(tratamientosActualizados));
 
@@ -54,17 +79,34 @@ export default function TratamientoView() {
     setTratamientoPendienteEliminar(id);
   };
 
-  const confirmarEliminacion = () => {
+  const confirmarEliminacion = async () => {
     if (tratamientoPendienteEliminar === null) return;
 
+    try {
+      if (typeof tratamientoPendienteEliminar === 'number' && tratamientoPendienteEliminar < 100000000000) {
+        await api.delete(`/sanidad/tratamientos/${tratamientoPendienteEliminar}/`);
+      }
+    } catch (err) {
+      console.warn("Fallo al eliminar tratamiento en API, aplicando respaldo local:", err);
+    }
+
     const tratamientosActualizados = tratamientos.filter(t => t.id !== tratamientoPendienteEliminar);
+
     setTratamientos(tratamientosActualizados);
     localStorage.setItem('tratamientos', JSON.stringify(tratamientosActualizados));
     setTratamientoPendienteEliminar(null);
     showNotification('✓ Tratamiento eliminado');
   };
 
-  const completarTratamiento = (id) => {
+  const completarTratamiento = async (id) => {
+    try {
+      if (id && typeof id === 'number' && id < 100000000000) {
+        await api.patch(`/sanidad/tratamientos/${id}/`, { estado: 'Completado' });
+      }
+    } catch (err) {
+      console.warn("Fallo al actualizar tratamiento en API, usando respaldo local:", err);
+    }
+
     const tratamientosActualizados = tratamientos.map(t =>
       t.id === id ? { ...t, estado: 'Completado' } : t
     );
@@ -184,7 +226,7 @@ export default function TratamientoView() {
                         </span>
                       </td>
                       <td className="p-4">
-                        <p className="font-bold">G{tratamiento.galpon} - {tratamiento.lote}</p>
+                        <p className="font-bold">Galpón {String(tratamiento.galpon || '').replace(/^galp[oó]n\s*/i, '')} - {tratamiento.lote}</p>
                       </td>
                       <td className="p-4 text-slate-600 dark:text-slate-300">{tratamiento.viaAdministracion}</td>
                       <td className="p-4 text-slate-600 dark:text-slate-300">{formatDate(tratamiento.fechaInicio)}</td>

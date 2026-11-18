@@ -17,6 +17,8 @@ const PESOS_REFERENCIA = {
   'babcock': [69, 123, 185, 259, 352, 453, 554, 656, 756, 854, 948, 1037, 1123, 1200, 1276, 1352, 1424, 1477],
 };
 
+
+
 const convertirPesoAGramos = (valor) => {
   const texto = String(valor).trim().toLowerCase().replace(/\s/g, '');
   const unidadKg = texto.endsWith('kg');

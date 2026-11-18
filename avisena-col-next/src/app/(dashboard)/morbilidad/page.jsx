@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import FormMorbilidad from '@/components/FormMorbilidad';
-
+import api from '@/services/api';
 
 export default function MorbilidadView() {
   const [showModal, setShowModal] = useState(false);
@@ -19,13 +19,24 @@ export default function MorbilidadView() {
   const itemsPerPage = 5;
 
   useEffect(() => {
-    const token = localStorage.getItem('user_token');
-    if (!token) {
-      router.push('/login');
-      return;
+    async function cargarMorbilidad() {
+      try {
+        await api.sincronizarPendientes().catch(() => { });
+        const res = await api.get('/sanidad/morbilidad/').catch(() => null);
+        const lista = Array.isArray(res) ? res : (res?.results || []);
+        if (lista.length > 0) {
+          setRegistros(lista);
+          localStorage.setItem('historialMorbilidad', JSON.stringify(lista));
+        } else {
+          const data = JSON.parse(localStorage.getItem('historialMorbilidad')) || [];
+          setRegistros(data);
+        }
+      } catch (err) {
+        const data = JSON.parse(localStorage.getItem('historialMorbilidad')) || [];
+        setRegistros(data);
+      }
     }
-    const data = JSON.parse(localStorage.getItem('historialMorbilidad')) || [];
-    setRegistros(data);
+    cargarMorbilidad();
   }, [router]);
 
   const showNotification = (title, message) => {
@@ -33,26 +44,44 @@ export default function MorbilidadView() {
     setTimeout(() => setToast({ show: false, title: '', message: '' }), 4000);
   };
 
-  const guardarRegistro = (formDataSubmit) => {
-    const loteFull = `Galpón ${formDataSubmit.galpon}`; // Se eliminó el lote puesto que ya no existe
+  const guardarRegistro = async (formDataSubmit) => {
+    const loteFull = `Galpón ${formDataSubmit.galpon}`;
 
     const nuevoRegistro = {
       ...editRegistro,
       id: editRegistro?.id ?? Date.now(),
       responsable: formDataSubmit.responsable,
       fecha: formDataSubmit.fecha,
-      galpon: formDataSubmit.galpon, // Se agregó galpón para que desde reportes se pueda diferenciar el galpón del cual se quiere generar un reporte
+      galpon: formDataSubmit.galpon,
       lote: loteFull,
-      sintomas: formDataSubmit.sintomas, // Se eleiminó el join debido a que ya no es necesario porque ya no es un select sino un textarea en sintomas
+      sintomas: formDataSubmit.sintomas,
       afectacion: formDataSubmit.afectacion,
       accion: formDataSubmit.accion,
-      cantidad: Number(formDataSubmit.cantidad), // Se agrega el Number para que en reportes se pueda hacer un conteo total de las aves enfermas
+      cantidad: Number(formDataSubmit.cantidad),
       observaciones: formDataSubmit.observaciones
     };
+
+
+    let registroFinal = nuevoRegistro;
+    try {
+      if (editRegistro) {
+        // Si es edición y tiene un ID real de base de datos, intenta actualizar en la API
+        if (typeof editRegistro.id === 'number' && editRegistro.id < 100000000000) {
+          const res = await api.put(`/sanidad/morbilidad/${editRegistro.id}/`, nuevoRegistro);
+          if (res && res.id) registroFinal = res;
+        }
+      } else {
+        const res = await api.post('/sanidad/morbilidad/', nuevoRegistro);
+        if (res && res.id) registroFinal = res;
+      }
+    } catch (err) {
+      console.warn("Fallo al guardar morbilidad en API, usando respaldo local:", err);
+    }
 
     const nuevosRegistros = editRegistro
       ? registros.map((registro) => registro.id === editRegistro.id ? nuevoRegistro : registro)
       : [nuevoRegistro, ...registros];
+
     localStorage.setItem('historialMorbilidad', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
 
@@ -67,11 +96,19 @@ export default function MorbilidadView() {
   const eliminarRegistro = (registroId) => {
     setRegistroPendienteEliminar(registroId);
   };
-
-  const confirmarEliminacion = () => {
+  const confirmarEliminacion = async () => {
     if (registroPendienteEliminar === null) return;
 
+    try {
+      if (typeof registroPendienteEliminar === 'number' && registroPendienteEliminar < 100000000000) {
+        await api.delete(`/sanidad/morbilidad/${registroPendienteEliminar}/`);
+      }
+    } catch (err) {
+      console.warn("Fallo al eliminar morbilidad en API, aplicando respaldo local:", err);
+    }
+
     const nuevosRegistros = registros.filter((registro) => registro.id !== registroPendienteEliminar);
+
     localStorage.setItem('historialMorbilidad', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
     setRegistroPendienteEliminar(null);
@@ -150,7 +187,7 @@ export default function MorbilidadView() {
     if (currentPage < totalPages) setCurrentPage(currentPage + 1);
   };
 
-     return (
+  return (
     <section className="flex h-full grow flex-col">
       <main className="flex flex-1 flex-col py-8 px-6 md:px-8 lg:px-12 w-full">
         <section className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8 justify-between">
@@ -278,22 +315,22 @@ export default function MorbilidadView() {
                         </td>
                         <td className="px-6 py-4 text-center">
                           <div className="flex items-center justify-center gap-2">
-                          <button
-                            onClick={() => editarRegistro(registro.id)}
-                            className="p-2 rounded-lg bg-blue-100 text-blue-500 hover:bg-blue-200 transition-colors"
-                            title="Editar"
-                            type="button"
-                          >
-                            <span className="material-symbols-outlined text-lg">edit</span>
-                          </button>
-                          <button
-                            onClick={() => eliminarRegistro(registro.id)}
-                            className="p-2 rounded-lg bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
-                            title="Eliminar"
-                            type="button"
-                          >
-                            <span className="material-symbols-outlined text-lg">delete</span>
-                          </button>
+                            <button
+                              onClick={() => editarRegistro(registro.id)}
+                              className="p-2 rounded-lg bg-blue-100 text-blue-500 hover:bg-blue-200 transition-colors"
+                              title="Editar"
+                              type="button"
+                            >
+                              <span className="material-symbols-outlined text-lg">edit</span>
+                            </button>
+                            <button
+                              onClick={() => eliminarRegistro(registro.id)}
+                              className="p-2 rounded-lg bg-red-100 text-red-500 hover:bg-red-200 transition-colors"
+                              title="Eliminar"
+                              type="button"
+                            >
+                              <span className="material-symbols-outlined text-lg">delete</span>
+                            </button>
                           </div>
                         </td>
                       </tr>
