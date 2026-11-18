@@ -198,7 +198,7 @@ export default function Page() {
     });
 
     mostrarMensaje(
-      `Registro guardado. Se restaron ${cantidad} aves del Galpón ${nombreGalpon} (quedan ${avesRestantes.toLocaleString()} aves).`
+      `Registro guardado. Se restaron ${cantidad} aves del Galpón ${nombreGalpon} aves).`
     );
   }
 
@@ -333,7 +333,7 @@ export default function Page() {
     });
 
     mostrarMensaje(
-      `Registro eliminado. Se reincorporaron ${cantidadReintegrar} aves al Galpón ${nombreGalpon} (total: ${avesTotales.toLocaleString()} aves).`
+      `Registro eliminado. Se reincorporaron ${cantidadReintegrar} aves al Galpón ${nombreGalpon}.`
     );
   }
 
