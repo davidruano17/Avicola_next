@@ -304,12 +304,12 @@ export default function FormLoteNuevo({ onSubmit, onClose, initialData = null })
 
             <div className="grid gap-4 md:grid-cols-3">
               <div>
-                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Peso promedio</label>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-2">Peso promedio (gramos)</label> 
                 <input
                   id="pesopromedio"
                   type="text"
                   className="w-full bg-white dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-2xl focus:ring-primary focus:border-primary dark:text-white text-sm h-11 px-3"
-                  placeholder="Peso promedio"
+                  placeholder="Peso promedio en gramos "
                   required
                   value={formData.pesopromedio}
                   onChange={(e) => setFormData({ ...formData, pesopromedio: e.target.value })}

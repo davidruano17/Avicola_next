@@ -133,8 +133,18 @@ export default function FormMortalidad({
                     <select
                       value={galpon}
                       onChange={(e) => {
-                        setGalpon(e.target.value);
+                        const valor = e.target.value;
+                        setGalpon(valor);
                         setErrorStock("");
+                        // Buscar el galpón seleccionado para extraer su semana de vida
+                        const encontrado = galpones.find(
+                          (g) =>
+                            String(g.galpon).trim().toLowerCase() === String(valor).trim().toLowerCase() ||
+                            String(g.id) === String(valor) ||
+                            String(g.lote).trim().toLowerCase() === String(valor).trim().toLowerCase() ||
+                            String(g.galpon).trim().replace(/^0+/, "") === String(valor).trim().replace(/^0+/, "")
+                        );
+                        setEdad(encontrado?.semanadevida ?? "");
                       }}
                       required
                       className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
@@ -154,11 +164,10 @@ export default function FormMortalidad({
                     {/* Indicador de aves disponibles en tiempo real */}
                     {galponSeleccionado && (
                       <div
-                        className={`text-xs font-medium flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg transition-all ${
-                          avesDisponibles > 0
+                        className={`text-xs font-medium flex items-center gap-1.5 mt-2 px-3 py-1.5 rounded-lg transition-all ${avesDisponibles > 0
                             ? "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-800/60"
                             : "bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800/60"
-                        }`}
+                          }`}
                       >
                         <span className="material-symbols-outlined text-base">
                           {avesDisponibles > 0 ? "check_circle" : "error"}
@@ -207,11 +216,11 @@ export default function FormMortalidad({
                       <input
                         type="number"
                         value={edad}
-                        onChange={(e) => setEdad(e.target.value)}
-                        placeholder="Ej: 19"
-                        min="1"
+                        readOnly
+                        placeholder="Se asigna según el galpón"
                         required
-                        className="w-full px-3.5 py-2.5 border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
+                        disabled
+                        className="w-full px-3.5 py-2.5 cursor-not-allowed border border-slate-200 dark:border-slate-700 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-100 text-sm outline-none transition-all focus:border-transparent focus:ring-2 focus:ring-[#49E619]/40"
                       />
                     </div>
 

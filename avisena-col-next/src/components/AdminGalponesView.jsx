@@ -125,14 +125,22 @@ export default function AdminGalponesView() {
     setShowModal(false);
   };
 
-  const eliminarRegistro = (registroId) => {
+const eliminarRegistro = (registroId) => {
     setRegistroPendienteEliminar(registroId);
-  };
-
-  const confirmarEliminacion = () => {
+  }; 
+    const confirmarEliminacion = async () => {
     if (registroPendienteEliminar === null) return;
 
+    try {
+      if (typeof registroPendienteEliminar === 'number') {
+        await api.delete(`/galpones/${registroPendienteEliminar}/`);
+      }
+    } catch (e) {
+      console.warn('No se pudo eliminar en API:', e);
+    }
+
     const nuevosRegistros = registros.filter((registro) => registro.id !== registroPendienteEliminar);
+
     localStorage.setItem('historialgalpones', JSON.stringify(nuevosRegistros));
     setRegistros(nuevosRegistros);
     setRegistroPendienteEliminar(null);

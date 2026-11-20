@@ -7,8 +7,8 @@ const nombresPerfilPorUsuario = {
   aprendiz: 'Aprendiz Sena',
   investigador: 'Instructor Investigador',
 };
-
 export default function FormMorbilidad({ onSubmit, onClose, initialData = null }) {
+  const [galponesDisponibles, setGalponesDisponibles] = useState([]);
   const [formData, setFormData] = useState({
     responsable: initialData?.responsable || '',
     fecha: initialData?.fecha || '',
@@ -35,6 +35,30 @@ export default function FormMorbilidad({ onSubmit, onClose, initialData = null }
           setFormData((prev) => ({ ...prev, responsable: perfil.name.trim() }));
           return;
         }
+      } catch { }
+      try {
+        const local = JSON.parse(localStorage.getItem('historialgalpones') || '[]');
+        if (Array.isArray(local) && local.length > 0) setGalponesDisponibles(local);
+      } catch { }
+    }
+
+    setFormData((prev) => ({ ...prev, responsable: nombrePorDefecto }));
+  }, [initialData]);
+
+  useEffect(() => {
+    if (initialData) return;
+
+    const userId = localStorage.getItem('user_id') || 'admin';
+    const nombrePorDefecto = nombresPerfilPorUsuario[userId] || nombresPerfilPorUsuario.admin;
+    const perfilGuardado = localStorage.getItem(`user_profile_${userId}`);
+
+    if (perfilGuardado) {
+      try {
+        const perfil = JSON.parse(perfilGuardado);
+        if (typeof perfil?.name === 'string' && perfil.name.trim()) {
+          setFormData((prev) => ({ ...prev, responsable: perfil.name.trim() }));
+          return;
+        }
       } catch (error) {
         console.error('No se pudo cargar el responsable desde el perfil.', error);
       }
@@ -42,6 +66,7 @@ export default function FormMorbilidad({ onSubmit, onClose, initialData = null }
 
     setFormData((prev) => ({ ...prev, responsable: nombrePorDefecto }));
   }, [initialData]);
+
 
   const handleSintomasChange = (e) => {
     const options = e.target.options;
@@ -169,52 +194,52 @@ export default function FormMorbilidad({ onSubmit, onClose, initialData = null }
                 />
               </section>
               <section>
-              <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Acción Inmediata</label>
-              <select
-                id="f-accion"
-                className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm h-10 px-3 border"
-                required
-                value={formData.accion}
-                onChange={(e) => setFormData({ ...formData, accion: e.target.value })}
-              >
-                <option value="">Seleccione acción...</option>
-                <option value="Aislamiento">Aislamiento</option>
-                <option value="Inicio de tratamiento">Inicio de tratamiento</option>
-                <option value="Cuarentena de Galpón">Cuarentena de Galpón</option>
-                <option value="Revisión Veterinaria">Revisión Veterinaria</option>
-              </select>
-            </section>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Acción Inmediata</label>
+                <select
+                  id="f-accion"
+                  className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm h-10 px-3 border"
+                  required
+                  value={formData.accion}
+                  onChange={(e) => setFormData({ ...formData, accion: e.target.value })}
+                >
+                  <option value="">Seleccione acción...</option>
+                  <option value="Aislamiento">Aislamiento</option>
+                  <option value="Inicio de tratamiento">Inicio de tratamiento</option>
+                  <option value="Cuarentena de Galpón">Cuarentena de Galpón</option>
+                  <option value="Revisión Veterinaria">Revisión Veterinaria</option>
+                </select>
+              </section>
             </section>
 
-            
+
             {/* Grado de Afectación y Aves Afectadas */}
             <section className="grid grid-cols-2 gap-4">
               {/* Síntomas / Causas Probables */}
-                
-                <section>
-                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Síntomas / Causas Probables</label>
-                  <textarea
-                    id="f-sintomas"
-                    className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm resize-none p-3 border"
-                    placeholder="Detalles adicionales observados..."
-                    rows="4"
-                    value={formData.sintomas}
-                    onChange={(e) => setFormData({ ...formData, sintomas: e.target.value })} // Se corrige sintomas, porque estaba mal escrito y no se estaba leyendo correctamente
-                  ></textarea>
-                </section>
-                <section>
-                  <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Observaciones Técnicas</label>
-                  <textarea
-                    id="f-observaciones"
-                    className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm resize-none p-3 border"
-                    placeholder="Detalles adicionales observados..."
-                    rows="4"
-                    value={formData.observaciones}
-                    onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
-                  ></textarea>
-                </section>
-                
-            </section>        
+
+              <section>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Síntomas / Causas Probables</label>
+                <textarea
+                  id="f-sintomas"
+                  className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm resize-none p-3 border"
+                  placeholder="Detalles adicionales observados..."
+                  rows="4"
+                  value={formData.sintomas}
+                  onChange={(e) => setFormData({ ...formData, sintomas: e.target.value })} // Se corrige sintomas, porque estaba mal escrito y no se estaba leyendo correctamente
+                ></textarea>
+              </section>
+              <section>
+                <label className="block text-xs font-bold uppercase text-slate-500 mb-1">Observaciones Técnicas</label>
+                <textarea
+                  id="f-observaciones"
+                  className="w-full bg-slate-50 dark:bg-background-dark border border-slate-200 dark:border-primary/20 rounded-lg focus:ring-primary focus:border-primary dark:text-white text-sm resize-none p-3 border"
+                  placeholder="Detalles adicionales observados..."
+                  rows="4"
+                  value={formData.observaciones}
+                  onChange={(e) => setFormData({ ...formData, observaciones: e.target.value })}
+                ></textarea>
+              </section>
+
+            </section>
 
             <button
               className="w-full bg-primary hover:bg-[#3dbd14] text-black font-black py-4 px-6 rounded-lg transition-all flex justify-center items-center gap-2 shadow-lg shadow-primary/20 active:scale-[0.98] border-none cursor-pointer text-base min-h-[56px]"
