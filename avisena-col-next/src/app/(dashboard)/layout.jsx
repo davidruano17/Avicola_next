@@ -19,7 +19,9 @@ import {
   MessageCircle,
   FilePenLine,
   House,
-  ChartNoAxesCombined
+  ChartNoAxesCombined,
+  MessageCircle,
+  BarChart3
 } from 'lucide-react';
 
 const logoSena = '/assets/images/logo-sena-verde-complementario-svg-2022.svg';
@@ -124,6 +126,7 @@ export default function DashboardLayout({ children }) {
     '/lotes': 'Administrar galpones de aves',
     '/dashboard': 'Inicio',
     '/finanzas': 'Finanzas',
+    '/estadisticas': 'Estadísticas y Análisis',
     '/chatbox': 'Asistente Virtual Avícola',
 
   };
@@ -288,6 +291,10 @@ export default function DashboardLayout({ children }) {
             <NavLink to="/reportes" className={({ isActive }) => `flex items-center h-12 rounded-lg text-slate-600 dark:text-[#becbb3] hover:bg-[#f1f5f9] dark:hover:bg-[#162035] hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full cursor-pointer box-border no-underline ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-4'} ${isActive ? 'bg-[#f1f5f9] dark:bg-[#162035] text-[#49e619] dark:text-white' : ''}`}>
               <FileText className="w-5 h-5 shrink-0" />
               <span className={`transition-opacity duration-200 whitespace-nowrap ${isSidebarCollapsed ? 'hidden' : 'block'}`}>Reportes</span>
+            </NavLink>
+            <NavLink to="/estadisticas" className={({ isActive }) => `flex items-center h-12 rounded-lg text-slate-600 dark:text-[#becbb3] hover:bg-[#f1f5f9] dark:hover:bg-[#162035] hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full cursor-pointer box-border no-underline ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-4'} ${isActive ? 'bg-[#f1f5f9] dark:bg-[#162035] text-[#49e619] dark:text-white' : ''}`}>
+              <BarChart3 className="w-5 h-5 shrink-0" />
+              <span className={`transition-opacity duration-200 whitespace-nowrap ${isSidebarCollapsed ? 'hidden' : 'block'}`}>Estadísticas y Análisis</span>
             </NavLink>
             {role === "admin" && (
             <NavLink to="/finanzas" className={({ isActive }) => `flex items-center h-12 rounded-lg text-slate-600 dark:text-[#becbb3] hover:bg-[#f1f5f9] dark:hover:bg-[#162035] hover:text-slate-900 dark:hover:text-white transition-all duration-200 w-full cursor-pointer box-border no-underline ${isSidebarCollapsed ? 'justify-center px-0' : 'gap-4 px-4'} ${isActive ? 'bg-[#f1f5f9] dark:bg-[#162035] text-[#49e619] dark:text-white' : ''}`}>
