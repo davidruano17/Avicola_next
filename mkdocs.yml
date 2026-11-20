@@ -1,0 +1,22 @@
+site_name: Manual de Usuario - AVISENA COL
+site_description: Manual de usuario de AVISENA COL basado en documentación como código
+docs_dir: docs
+theme:
+  name: material
+  language: es
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.top
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+nav:
+  - Inicio: index.md
+  - Manual de Usuario:
+      - Primeros pasos: user-manual/01-primeros-pasos.md
+      - Perfil y cuenta: user-manual/02-perfil-cuenta.md
+      - Guías operativas: user-manual/03-guias-operativas.md
+      - Preguntas frecuentes: user-manual/04-preguntas-frecuentes.md
+      - Resolución de problemas: user-manual/05-resolucion-problemas.md
+      - Control de cambios: user-manual/06-control-cambios.md
