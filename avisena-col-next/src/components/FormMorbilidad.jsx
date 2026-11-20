@@ -1,7 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
-import api from '@/services/api';
+import { useEffect, useState } from 'react';
 
 const nombresPerfilPorUsuario = {
   admin: 'Instructor Líder (Admin)',
@@ -23,13 +22,17 @@ export default function FormMorbilidad({ onSubmit, onClose, initialData = null }
   });
 
   useEffect(() => {
-    async function cargarGalpones() {
+    if (initialData) return;
+
+    const userId = localStorage.getItem('user_id') || 'admin';
+    const nombrePorDefecto = nombresPerfilPorUsuario[userId] || nombresPerfilPorUsuario.admin;
+    const perfilGuardado = localStorage.getItem(`user_profile_${userId}`);
+
+    if (perfilGuardado) {
       try {
-        const res = await api.get('/galpones/').catch(() => null);
-        const lista = Array.isArray(res) ? res : (res?.results || []);
-        if (lista.length > 0) {
-          localStorage.setItem('historialgalpones', JSON.stringify(lista));
-          setGalponesDisponibles(lista);
+        const perfil = JSON.parse(perfilGuardado);
+        if (typeof perfil?.name === 'string' && perfil.name.trim()) {
+          setFormData((prev) => ({ ...prev, responsable: perfil.name.trim() }));
           return;
         }
       } catch { }
@@ -38,8 +41,9 @@ export default function FormMorbilidad({ onSubmit, onClose, initialData = null }
         if (Array.isArray(local) && local.length > 0) setGalponesDisponibles(local);
       } catch { }
     }
-    cargarGalpones();
-  }, []);
+
+    setFormData((prev) => ({ ...prev, responsable: nombrePorDefecto }));
+  }, [initialData]);
 
   useEffect(() => {
     if (initialData) return;
